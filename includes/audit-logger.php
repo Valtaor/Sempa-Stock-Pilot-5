@@ -26,12 +26,22 @@ final class Sempa_Audit_Logger
         global $wpdb;
         $user = wp_get_current_user();
 
+        error_log('🔍 Sempa_Audit_Logger::log() appelé avec: ' . json_encode([
+            'entity_type' => $entity_type,
+            'entity_id' => $entity_id,
+            'action' => $action,
+            'has_old_values' => $old_values !== null,
+            'has_new_values' => $new_values !== null,
+            'user_exists' => $user->exists(),
+        ]));
+
         if (!$user->exists()) {
             error_log('[Sempa Audit] No user logged in, cannot log audit entry');
             return false;
         }
 
         $table_name = $wpdb->prefix . 'sempa_audit_log';
+        error_log('🔍 Table cible: ' . $table_name);
 
         // Generate changes summary
         $changes_summary = self::generate_changes_summary($old_values, $new_values, $action);
@@ -57,13 +67,22 @@ final class Sempa_Audit_Logger
             'created_at' => current_time('mysql'),
         ];
 
+        error_log('🔍 Données à insérer: ' . json_encode([
+            'entity_type' => $data['entity_type'],
+            'entity_id' => $data['entity_id'],
+            'action' => $data['action'],
+            'user_id' => $data['user_id'],
+            'user_name' => $data['user_name'],
+        ]));
+
         $result = $wpdb->insert($table_name, $data);
 
         if ($result === false) {
-            error_log('[Sempa Audit] Failed to insert audit log: ' . $wpdb->last_error);
+            error_log('❌ [Sempa Audit] Failed to insert audit log: ' . $wpdb->last_error);
             return false;
         }
 
+        error_log('✅ [Sempa Audit] Audit log inserted successfully, insert_id: ' . $wpdb->insert_id);
         return true;
     }
 
@@ -80,6 +99,13 @@ final class Sempa_Audit_Logger
         global $wpdb;
         $table_name = $wpdb->prefix . 'sempa_audit_log';
 
+        error_log('🔍 get_history() appelé avec: ' . json_encode([
+            'entity_type' => $entity_type,
+            'entity_id' => $entity_id,
+            'limit' => $limit,
+            'table_name' => $table_name,
+        ]));
+
         $query = $wpdb->prepare(
             "SELECT * FROM $table_name
              WHERE entity_type = %s AND entity_id = %d
@@ -90,10 +116,18 @@ final class Sempa_Audit_Logger
             absint($limit)
         );
 
+        error_log('🔍 Requête SQL: ' . $query);
+
         $results = $wpdb->get_results($query, ARRAY_A);
 
+        error_log('🔍 Résultats get_history: ' . json_encode([
+            'count' => $results ? count($results) : 0,
+            'results_is_null' => $results === null,
+            'last_error' => $wpdb->last_error ?: 'none',
+        ]));
+
         if ($results === null) {
-            error_log('[Sempa Audit] Failed to fetch audit history: ' . $wpdb->last_error);
+            error_log('❌ [Sempa Audit] Failed to fetch audit history: ' . $wpdb->last_error);
             return [];
         }
 
