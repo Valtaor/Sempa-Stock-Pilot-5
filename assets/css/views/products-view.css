@@ -19,13 +19,11 @@
 
 /* Container de la grille avec fond pour contraste */
 #products-grid-container {
-  background: transparent !important;
-  min-height: 300px !important;
-  margin-top: var(--sp-spacing-lg) !important;
-  margin-bottom: var(--sp-spacing-lg) !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+  background: transparent;
+  min-height: 300px;
+  margin-top: var(--sp-spacing-lg);
+  margin-bottom: var(--sp-spacing-lg);
+  /* display, visibility et opacity sont gérés par la classe products-view--active */
 }
 
 /* S'assurer que les cartes ont un bon contraste */
