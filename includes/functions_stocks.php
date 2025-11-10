@@ -5,6 +5,7 @@ if (!defined('ABSPATH')) {
 
 require_once __DIR__ . '/db_connect_stocks.php';
 require_once __DIR__ . '/db_schema_setup.php';
+require_once __DIR__ . '/audit-logger.php';
 
 final class Sempa_Stocks_App
 {
@@ -668,6 +669,20 @@ final class Sempa_Stocks_App
         }
 
         $db->query('COMMIT');
+
+        // Logger le mouvement dans l'audit
+        if (class_exists('Sempa_Audit_Logger') && !empty($movement)) {
+            $movement_id = isset($movement['id']) ? absint($movement['id']) : 0;
+            if ($movement_id > 0) {
+                Sempa_Audit_Logger::log(
+                    'movement',
+                    $movement_id,
+                    'created',
+                    null,
+                    self::format_movement($movement)
+                );
+            }
+        }
 
         wp_send_json_success([
             'movement' => self::format_movement($movement ?: []),
