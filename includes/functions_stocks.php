@@ -29,6 +29,7 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_reference_data', [__CLASS__, 'ajax_reference_data']);
         add_action('wp_ajax_sempa_stocks_save_category', [__CLASS__, 'ajax_save_category']);
         add_action('wp_ajax_sempa_stocks_save_supplier', [__CLASS__, 'ajax_save_supplier']);
+        add_action('wp_ajax_sempa_stocks_get_history', [__CLASS__, 'ajax_get_history']);
         add_action('init', [__CLASS__, 'register_export_route']);
     }
 
@@ -305,9 +306,18 @@ final class Sempa_Stocks_App
         }
 
         $table = Sempa_Stocks_DB::table('stocks_sempa');
+        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+
+        // Variables pour l'audit
+        $old_product = null;
+        $action = '';
 
         if ($id > 0) {
-            // UPDATE: Ajouter audit trail pour modification
+            // UPDATE: Récupérer l'ancien produit pour l'audit
+            $old_product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
+            $action = 'updated';
+
+            // Ajouter audit trail pour modification
             $payload['modified_by'] = $user->ID;
             $payload['modified_at'] = current_time('mysql');
 
@@ -332,6 +342,7 @@ final class Sempa_Stocks_App
             }
         } else {
             // INSERT: Ajouter audit trail pour création
+            $action = 'created';
             $payload['created_by'] = $user->ID;
             $payload['created_at'] = current_time('mysql');
 
@@ -348,8 +359,20 @@ final class Sempa_Stocks_App
             $id = (int) $db->insert_id;
         }
 
-        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+        // Récupérer le produit final
         $product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
+
+        // Logger l'action dans l'audit
+        if (class_exists('Sempa_Audit_Logger')) {
+            Sempa_Audit_Logger::log(
+                'product',
+                $id,
+                $action,
+                $old_product ? self::format_product($old_product) : null,
+                self::format_product($product ?: [])
+            );
+        }
+
         wp_send_json_success([
             'product' => self::format_product($product ?: []),
         ]);
@@ -377,6 +400,11 @@ final class Sempa_Stocks_App
         }
 
         $table = Sempa_Stocks_DB::table('stocks_sempa');
+        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+
+        // Récupérer le produit avant suppression pour l'audit
+        $product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
+
         $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
         if (empty($where)) {
             wp_send_json_error(['message' => __('Identifiant de produit introuvable dans la base.', 'sempa')], 400);
@@ -385,6 +413,17 @@ final class Sempa_Stocks_App
         $deleted = $db->delete($table, $where);
         if ($deleted === false) {
             wp_send_json_error(['message' => $db->last_error ?: __('Impossible de supprimer le produit.', 'sempa')], 500);
+        }
+
+        // Logger la suppression dans l'audit
+        if (class_exists('Sempa_Audit_Logger') && $product) {
+            Sempa_Audit_Logger::log(
+                'product',
+                $id,
+                'deleted',
+                self::format_product($product),
+                null
+            );
         }
 
         wp_send_json_success();
@@ -780,6 +819,31 @@ final class Sempa_Stocks_App
 
         wp_send_json_success([
             'supplier' => self::format_supplier($supplier_data),
+        ]);
+    }
+
+    public static function ajax_get_history()
+    {
+        self::ensure_secure_request();
+
+        $entity_type = isset($_GET['entity_type']) ? sanitize_key($_GET['entity_type']) : 'product';
+        $entity_id = isset($_GET['entity_id']) ? absint($_GET['entity_id']) : 0;
+        $limit = isset($_GET['limit']) ? absint($_GET['limit']) : 50;
+
+        if ($entity_id <= 0) {
+            wp_send_json_error(['message' => __('ID d\'entité invalide.', 'sempa')], 400);
+        }
+
+        if (!class_exists('Sempa_Audit_Logger')) {
+            wp_send_json_error(['message' => __('Le système d\'historique n\'est pas disponible.', 'sempa')], 500);
+        }
+
+        $history = Sempa_Audit_Logger::get_history($entity_type, $entity_id, $limit);
+
+        wp_send_json_success([
+            'history' => $history,
+            'entity_type' => $entity_type,
+            'entity_id' => $entity_id,
         ]);
     }
 

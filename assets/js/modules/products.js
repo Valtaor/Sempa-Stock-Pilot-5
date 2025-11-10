@@ -401,7 +401,8 @@ class ProductsModule {
       const grid = ProductCard.renderGrid(productsToShow, {
         onEdit: (product) => this.editProduct(product),
         onDuplicate: (product) => this.duplicateProduct(product),
-        onDelete: (product) => this.deleteProduct(product)
+        onDelete: (product) => this.deleteProduct(product),
+        onHistory: (product) => this.showHistory(product)
       });
 
       console.log('✅ Grille créée:', grid);
@@ -878,6 +879,23 @@ class ProductsModule {
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     console.log('✅ Formulaire produit ouvert');
+  }
+
+  /**
+   * Affiche l'historique d'un produit
+   *
+   * @param {Object} product - Produit
+   */
+  showHistory(product) {
+    console.log(`🕒 Affichage historique produit #${product.id}`);
+
+    if (typeof HistoryModal === 'undefined') {
+      console.error('❌ HistoryModal n\'est pas chargé');
+      alert('Le module d\'historique n\'est pas disponible');
+      return;
+    }
+
+    HistoryModal.show(product.id, product.designation);
   }
 
   /**
