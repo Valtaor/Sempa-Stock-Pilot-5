@@ -113,25 +113,32 @@ class HistoryModal {
    * @returns {Promise<Array>} Historique
    */
   static async fetchHistory(productId) {
-    const response = await fetch(
-      `${SempaStocksData.ajaxUrl}?action=sempa_stocks_get_history&entity_type=product&entity_id=${productId}&nonce=${SempaStocksData.nonce}`,
-      {
-        method: 'GET',
-        credentials: 'same-origin',
-      }
-    );
+    const url = `${SempaStocksData.ajaxUrl}?action=sempa_stocks_get_history&entity_type=product&entity_id=${productId}&nonce=${SempaStocksData.nonce}`;
+    console.log('🔍 Requête historique:', { productId, url });
+
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'same-origin',
+    });
+
+    console.log('📡 Réponse HTTP:', { status: response.status, ok: response.ok });
 
     if (!response.ok) {
       throw new Error(`Erreur HTTP ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('📦 Données reçues:', data);
 
     if (!data.success) {
+      console.error('❌ Erreur API:', data.data?.message);
       throw new Error(data.data?.message || 'Erreur inconnue');
     }
 
-    return data.data.history || [];
+    const history = data.data.history || [];
+    console.log(`✅ Historique récupéré: ${history.length} entrées`, history);
+
+    return history;
   }
 
   /**
