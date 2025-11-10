@@ -478,7 +478,15 @@ class DashboardModule {
    */
   showNotification(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
-    // TODO: Implémenter avec le composant Notification
+
+    // Utiliser le composant StockPilotNotification
+    if (window.StockPilotNotification) {
+      window.StockPilotNotification.show({
+        message,
+        type,
+        duration: 5000
+      });
+    }
   }
 
   /**

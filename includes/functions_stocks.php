@@ -204,10 +204,66 @@ final class Sempa_Stocks_App
             }
         }
 
-        // Calculer les tendances (variations simulées pour l'instant)
-        // TODO: Implémenter le calcul réel basé sur les données historiques
-        $value_change = (rand(-100, 100) / 10); // Variation de -10% à +10%
-        $movements_change = (rand(-50, 50) / 10); // Variation de -5% à +5%
+        // Calculer les tendances basées sur les données historiques
+        $value_change = 0;
+        $movements_change = 0;
+
+        // Calculer la tendance des mouvements (comparaison avec hier)
+        if (Sempa_Stocks_DB::table_exists('mouvements_stocks_sempa')) {
+            $movement_table = Sempa_Stocks_DB::table('mouvements_stocks_sempa');
+            $movement_table_sql = Sempa_Stocks_DB::escape_identifier($movement_table);
+            $movement_date_column = Sempa_Stocks_DB::resolve_column('mouvements_stocks_sempa', 'date_mouvement', false);
+
+            if ($movement_date_column) {
+                // Compter les mouvements d'hier
+                $yesterday_query = 'SELECT COUNT(*) AS count FROM ' . $movement_table_sql .
+                    ' WHERE DATE(' . Sempa_Stocks_DB::escape_identifier($movement_date_column) . ') = CURDATE() - INTERVAL 1 DAY';
+                $yesterday_result = $db->get_row($yesterday_query);
+                $movements_yesterday = $yesterday_result ? (int) $yesterday_result->count : 0;
+
+                // Calculer le pourcentage de changement
+                if ($movements_yesterday > 0) {
+                    $movements_change = (($movements_today - $movements_yesterday) / $movements_yesterday) * 100;
+                    // Limiter à ±100%
+                    $movements_change = max(-100, min(100, $movements_change));
+                } elseif ($movements_today > 0) {
+                    // S'il n'y avait pas de mouvements hier mais qu'il y en a aujourd'hui
+                    $movements_change = 100;
+                }
+            }
+        }
+
+        // Calculer la tendance de la valeur (basée sur les mouvements d'entrée vs sortie de la semaine)
+        if (Sempa_Stocks_DB::table_exists('mouvements_stocks_sempa')) {
+            $movement_table = Sempa_Stocks_DB::table('mouvements_stocks_sempa');
+            $movement_table_sql = Sempa_Stocks_DB::escape_identifier($movement_table);
+            $movement_type_column = Sempa_Stocks_DB::resolve_column('mouvements_stocks_sempa', 'type_mouvement', false);
+            $movement_date_column = Sempa_Stocks_DB::resolve_column('mouvements_stocks_sempa', 'date_mouvement', false);
+            $movement_quantity_column = Sempa_Stocks_DB::resolve_column('mouvements_stocks_sempa', 'quantite', false);
+
+            if ($movement_type_column && $movement_date_column && $movement_quantity_column) {
+                // Compter les entrées et sorties de la dernière semaine
+                $inbound_query = 'SELECT SUM(' . Sempa_Stocks_DB::escape_identifier($movement_quantity_column) . ') AS total FROM ' . $movement_table_sql .
+                    ' WHERE ' . Sempa_Stocks_DB::escape_identifier($movement_type_column) . ' = \'entree\'' .
+                    ' AND ' . Sempa_Stocks_DB::escape_identifier($movement_date_column) . ' >= CURDATE() - INTERVAL 7 DAY';
+                $inbound_result = $db->get_row($inbound_query);
+                $total_inbound = $inbound_result && $inbound_result->total ? (float) $inbound_result->total : 0;
+
+                $outbound_query = 'SELECT SUM(' . Sempa_Stocks_DB::escape_identifier($movement_quantity_column) . ') AS total FROM ' . $movement_table_sql .
+                    ' WHERE ' . Sempa_Stocks_DB::escape_identifier($movement_type_column) . ' = \'sortie\'' .
+                    ' AND ' . Sempa_Stocks_DB::escape_identifier($movement_date_column) . ' >= CURDATE() - INTERVAL 7 DAY';
+                $outbound_result = $db->get_row($outbound_query);
+                $total_outbound = $outbound_result && $outbound_result->total ? (float) $outbound_result->total : 0;
+
+                // Si plus d'entrées que de sorties, tendance positive, sinon négative
+                $total_movements = $total_inbound + $total_outbound;
+                if ($total_movements > 0) {
+                    $value_change = (($total_inbound - $total_outbound) / $total_movements) * 100;
+                    // Limiter à ±50%
+                    $value_change = max(-50, min(50, $value_change));
+                }
+            }
+        }
 
         wp_send_json_success([
             // Format pour le nouveau dashboard

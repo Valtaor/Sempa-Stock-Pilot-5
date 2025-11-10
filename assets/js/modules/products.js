@@ -776,19 +776,31 @@ class ProductsModule {
     console.log('🗑️ Supprimer produit:', product.id);
 
     try {
-      // TODO: Appeler l'API de suppression
-      // const apiClient = await this.getApiClient();
-      // await apiClient.deleteProduct(product.id);
+      // Appeler l'API de suppression
+      const apiClient = await this.getApiClient();
+      await apiClient.deleteProduct(product.id);
 
-      // Pour l'instant, simulation
-      alert(`Produit "${product.designation}" supprimé avec succès\n(Simulation - Fonctionnalité à implémenter)`);
+      // Afficher une notification de succès
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(
+          `Le produit "${product.designation}" a été supprimé avec succès.`
+        );
+      }
 
       // Recharger les produits
       await this.loadProducts();
       this.renderProducts();
     } catch (error) {
       console.error('❌ Erreur suppression produit:', error);
-      alert('Erreur lors de la suppression du produit');
+
+      // Afficher une notification d'erreur
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error(
+          `Erreur lors de la suppression du produit : ${error.message}`
+        );
+      } else {
+        alert('Erreur lors de la suppression du produit');
+      }
     }
   }
 

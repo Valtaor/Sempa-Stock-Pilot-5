@@ -44,6 +44,7 @@ $version = time(); // Cache busting RADICAL - force rechargement total
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/buttons.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/badges.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/loader.css?ver=' . $version); ?>">
+<link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/notification.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/dashboard.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/product-card.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/import-csv.css?ver=' . $version); ?>">
@@ -147,6 +148,7 @@ console.log('🔍 DIAGNOSTIC SempaStocksData:', {
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/Button.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/Badge.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/Loader.js?ver=' . $version); ?>"></script>
+<script src="<?php echo esc_url($assets_url . '/assets/js/components/Notification.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/MetricCard.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/Chart.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/ProductCard.js?ver=' . $version); ?>"></script>
