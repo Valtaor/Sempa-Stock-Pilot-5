@@ -31,6 +31,7 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_save_category', [__CLASS__, 'ajax_save_category']);
         add_action('wp_ajax_sempa_stocks_save_supplier', [__CLASS__, 'ajax_save_supplier']);
         add_action('wp_ajax_sempa_stocks_get_history', [__CLASS__, 'ajax_get_history']);
+        add_action('wp_ajax_sempa_stocks_test_audit', [__CLASS__, 'ajax_test_audit']); // Diagnostic endpoint
         add_action('init', [__CLASS__, 'register_export_route']);
     }
 
@@ -953,6 +954,84 @@ final class Sempa_Stocks_App
             'entity_type' => $entity_type,
             'entity_id' => $entity_id,
         ]);
+    }
+
+    /**
+     * Endpoint de diagnostic pour tester le système d'audit
+     */
+    public static function ajax_test_audit()
+    {
+        self::ensure_secure_request();
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'sempa_audit_log';
+
+        $diagnostics = [
+            'audit_logger_class_exists' => class_exists('Sempa_Audit_Logger'),
+            'table_exists' => false,
+            'table_name' => $table_name,
+            'total_entries' => 0,
+            'recent_entries' => [],
+            'test_insertion' => false,
+            'test_entry' => null,
+        ];
+
+        // Vérifier la table
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+        $diagnostics['table_exists'] = !empty($table_exists);
+
+        if ($diagnostics['table_exists']) {
+            // Compter les entrées
+            $diagnostics['total_entries'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+
+            // Dernières entrées
+            $diagnostics['recent_entries'] = $wpdb->get_results(
+                "SELECT entity_type, entity_id, action, user_name, created_at, changes_summary
+                 FROM $table_name
+                 ORDER BY created_at DESC
+                 LIMIT 5",
+                ARRAY_A
+            ) ?: [];
+
+            // Test d'insertion
+            if ($diagnostics['audit_logger_class_exists']) {
+                $test_result = Sempa_Audit_Logger::log(
+                    'test',
+                    999999,
+                    'created',
+                    null,
+                    ['diagnostic' => 'test_value', 'timestamp' => current_time('mysql')]
+                );
+
+                $diagnostics['test_insertion'] = $test_result;
+
+                if ($test_result) {
+                    // Récupérer l'entrée de test
+                    $diagnostics['test_entry'] = $wpdb->get_row(
+                        "SELECT * FROM $table_name
+                         WHERE entity_type = 'test' AND entity_id = 999999
+                         ORDER BY created_at DESC
+                         LIMIT 1",
+                        ARRAY_A
+                    );
+
+                    // Nettoyer l'entrée de test
+                    if ($diagnostics['test_entry']) {
+                        $wpdb->delete($table_name, ['id' => $diagnostics['test_entry']['id']]);
+                    }
+                }
+            }
+        } else {
+            // Tenter de créer la table
+            if (class_exists('Sempa_Stocks_Schema_Setup')) {
+                Sempa_Stocks_Schema_Setup::ensure_schema();
+                $table_exists_after = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+                $diagnostics['table_created'] = !empty($table_exists_after);
+                $diagnostics['table_exists'] = $diagnostics['table_created'];
+            }
+        }
+
+        wp_send_json_success($diagnostics);
     }
 
     private static function ensure_secure_request()
