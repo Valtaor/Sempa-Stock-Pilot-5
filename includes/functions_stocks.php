@@ -364,13 +364,25 @@ final class Sempa_Stocks_App
 
         // Logger l'action dans l'audit
         if (class_exists('Sempa_Audit_Logger')) {
-            Sempa_Audit_Logger::log(
+            error_log('🔍 AUDIT LOG - Tentative de logging: ' . json_encode([
+                'entity_type' => 'product',
+                'entity_id' => $id,
+                'action' => $action,
+                'has_old_product' => $old_product !== null,
+                'has_new_product' => $product !== null,
+            ]));
+
+            $log_result = Sempa_Audit_Logger::log(
                 'product',
                 $id,
                 $action,
                 $old_product ? self::format_product($old_product) : null,
                 self::format_product($product ?: [])
             );
+
+            error_log('✅ AUDIT LOG - Résultat: ' . ($log_result ? 'SUCCESS' : 'FAILED'));
+        } else {
+            error_log('❌ AUDIT LOG - Classe Sempa_Audit_Logger non disponible');
         }
 
         wp_send_json_success([
