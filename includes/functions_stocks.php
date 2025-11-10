@@ -932,7 +932,8 @@ final class Sempa_Stocks_App
 
         // Vérifier si la table existe
         global $wpdb;
-        $table_name = $wpdb->prefix . 'sempa_audit_log';
+        // Note: sempa tables are NOT prefixed with wp_
+        $table_name = 'sempa_audit_log';
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
         error_log('🔍 Table audit_log existe: ' . ($table_exists ? 'OUI' : 'NON') . ' (table: ' . $table_name . ')');
 
@@ -964,7 +965,8 @@ final class Sempa_Stocks_App
         self::ensure_secure_request();
 
         global $wpdb;
-        $table_name = $wpdb->prefix . 'sempa_audit_log';
+        // Note: sempa tables are NOT prefixed with wp_
+        $table_name = 'sempa_audit_log';
 
         $diagnostics = [
             'audit_logger_class_exists' => class_exists('Sempa_Audit_Logger'),
