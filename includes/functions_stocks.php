@@ -842,15 +842,40 @@ final class Sempa_Stocks_App
         $entity_id = isset($_GET['entity_id']) ? absint($_GET['entity_id']) : 0;
         $limit = isset($_GET['limit']) ? absint($_GET['limit']) : 50;
 
+        error_log('🔍 ajax_get_history appelé avec: ' . json_encode([
+            'entity_type' => $entity_type,
+            'entity_id' => $entity_id,
+            'limit' => $limit,
+        ]));
+
         if ($entity_id <= 0) {
+            error_log('❌ ID entité invalide: ' . $entity_id);
             wp_send_json_error(['message' => __('ID d\'entité invalide.', 'sempa')], 400);
         }
 
         if (!class_exists('Sempa_Audit_Logger')) {
+            error_log('❌ Classe Sempa_Audit_Logger non disponible');
             wp_send_json_error(['message' => __('Le système d\'historique n\'est pas disponible.', 'sempa')], 500);
         }
 
+        // Vérifier si la table existe
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'sempa_audit_log';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+        error_log('🔍 Table audit_log existe: ' . ($table_exists ? 'OUI' : 'NON') . ' (table: ' . $table_name . ')');
+
+        if (!$table_exists) {
+            error_log('⚠️ Table audit_log n\'existe pas, tentative de création...');
+            // Forcer la création du schéma
+            if (class_exists('Sempa_Stocks_Schema_Setup')) {
+                Sempa_Stocks_Schema_Setup::ensure_schema();
+                error_log('✅ Schema setup appelé');
+            }
+        }
+
         $history = Sempa_Audit_Logger::get_history($entity_type, $entity_id, $limit);
+
+        error_log('✅ Historique récupéré: ' . count($history) . ' entrées');
 
         wp_send_json_success([
             'history' => $history,
