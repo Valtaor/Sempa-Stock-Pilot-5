@@ -47,6 +47,7 @@ $version = time(); // Cache busting RADICAL - force rechargement total
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/dashboard.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/product-card.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/import-csv.css?ver=' . $version); ?>">
+<link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/history-modal.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/views/products-view.css?ver=' . $version); ?>">
 
 <!-- Fix visibilité produits + Sticky sidebar + Clics forcés -->
@@ -149,6 +150,7 @@ console.log('🔍 DIAGNOSTIC SempaStocksData:', {
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/MetricCard.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/Chart.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/ProductCard.js?ver=' . $version); ?>"></script>
+<script src="<?php echo esc_url($assets_url . '/assets/js/components/HistoryModal.js?ver=' . $version); ?>"></script>
 
 <!-- Données pour JavaScript (doivent être disponibles avant l'API) -->
 <script>
