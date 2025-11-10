@@ -26,6 +26,7 @@ class ProductCard {
    * @param {Function} options.onEdit - Callback lors du clic sur éditer
    * @param {Function} options.onDuplicate - Callback lors du clic sur dupliquer
    * @param {Function} options.onDelete - Callback lors du clic sur supprimer
+   * @param {Function} options.onHistory - Callback lors du clic sur historique
    * @returns {HTMLElement} - Élément DOM de la carte
    */
   static render(product, options = {}) {
@@ -33,6 +34,7 @@ class ProductCard {
       onEdit = null,
       onDuplicate = null,
       onDelete = null,
+      onHistory = null,
     } = options;
 
     // Calculer le statut du stock
@@ -136,6 +138,9 @@ class ProductCard {
         ${this.renderAuditTrail(product)}
 
         <div class="sp-product-card__actions">
+          <button type="button" class="sp-product-card__action" data-action="history" aria-label="Voir l'historique" title="Historique">
+            <i data-lucide="clock"></i>
+          </button>
           <button type="button" class="sp-product-card__action" data-action="edit" aria-label="Éditer le produit">
             <i data-lucide="edit-3"></i>
           </button>
@@ -160,7 +165,7 @@ class ProductCard {
     `;
 
     // Attacher les event listeners
-    this.attachEventListeners(card, product, { onEdit, onDuplicate, onDelete });
+    this.attachEventListeners(card, product, { onEdit, onDuplicate, onDelete, onHistory });
 
     return card;
   }
@@ -173,7 +178,17 @@ class ProductCard {
    * @param {Object} callbacks - Callbacks pour les actions
    */
   static attachEventListeners(card, product, callbacks) {
-    const { onEdit, onDuplicate, onDelete } = callbacks;
+    const { onEdit, onDuplicate, onDelete, onHistory } = callbacks;
+
+    // Bouton historique
+    const historyBtn = card.querySelector('[data-action="history"]');
+    if (historyBtn && onHistory) {
+      historyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onHistory(product);
+      });
+    }
 
     // Bouton éditer
     const editBtn = card.querySelector('[data-action="edit"]');
