@@ -40,7 +40,8 @@ final class Sempa_Audit_Logger
             return false;
         }
 
-        $table_name = $wpdb->prefix . 'sempa_audit_log';
+        // Note: sempa tables are NOT prefixed with wp_
+        $table_name = 'sempa_audit_log';
         error_log('🔍 Table cible: ' . $table_name);
 
         // Generate changes summary
@@ -97,7 +98,8 @@ final class Sempa_Audit_Logger
     public static function get_history($entity_type, $entity_id, $limit = 50)
     {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'sempa_audit_log';
+        // Note: sempa tables are NOT prefixed with wp_
+        $table_name = 'sempa_audit_log';
 
         error_log('🔍 get_history() appelé avec: ' . json_encode([
             'entity_type' => $entity_type,
@@ -153,7 +155,8 @@ final class Sempa_Audit_Logger
     public static function get_recent_activity($limit = 100)
     {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'sempa_audit_log';
+        // Note: sempa tables are NOT prefixed with wp_
+        $table_name = 'sempa_audit_log';
 
         $query = $wpdb->prepare(
             "SELECT * FROM $table_name

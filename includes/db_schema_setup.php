@@ -239,7 +239,8 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             }
 
             // Check if table already exists
-            $table_name = $db->prefix . 'sempa_audit_log';
+            // Note: sempa tables are NOT prefixed with wp_
+            $table_name = 'sempa_audit_log';
             $existing_tables = $db->get_col("SHOW TABLES LIKE '$table_name'");
             if (!empty($existing_tables)) {
                 return true; // Table already exists
@@ -291,7 +292,8 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             }
 
             // Check if table already exists
-            $table_name = $db->prefix . 'sempa_saved_filters';
+            // Note: sempa tables are NOT prefixed with wp_
+            $table_name = 'sempa_saved_filters';
             $existing_tables = $db->get_col("SHOW TABLES LIKE '$table_name'");
             if (!empty($existing_tables)) {
                 return true; // Table already exists
