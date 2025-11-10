@@ -69,20 +69,6 @@ body,
     overflow: visible !important;
 }
 
-/* Force l'affichage des produits - Override toute cascade CSS */
-#view-products .sp-products-grid {
-    display: grid !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
-#view-products .sp-product-card {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: #ffffff !important;
-}
-
 /* Force sticky sidebar - TOUTES les propriétés nécessaires */
 .stockpilot-sidebar {
     position: -webkit-sticky !important;
@@ -601,7 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <button type="button" class="button button--ghost" id="stocks-clear-filters"><?php esc_html_e('Réinitialiser', 'sempa'); ?></button>
                             </div>
                         </div>
-                        <!-- Grille de produits (mode carte) -->
+                        <!-- Grille de produits (mode carte) - La classe products-view--active est gérée par JavaScript -->
                         <div id="products-grid-container" class="products-view">
                             <div class="sp-empty-state">
                                 <i data-lucide="loader"></i>
@@ -609,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
 
-                        <!-- Tableau de produits (mode tableau) -->
+                        <!-- Tableau de produits (mode tableau) - La classe products-view--active est gérée par JavaScript -->
                         <div id="products-table-container" class="products-view">
                             <div class="table-wrapper">
                                 <table class="stocks-table" id="stocks-products-table">

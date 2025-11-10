@@ -71,10 +71,14 @@ class ProductsModule {
       // Vérifier et réparer le conteneur si nécessaire
       this.ensureContainer();
 
+      // CORRECTION : Appliquer la vue par défaut AVANT de charger les produits
+      // pour que le bon conteneur soit visible dès le début
+      this.applyViewType(this.currentViewType);
+
       // Charger les produits
       await this.loadProducts();
 
-      // Initialiser les event listeners
+      // Initialiser les event listeners (sans réappliquer la vue)
       this.initEventListeners();
 
       // Afficher les produits
@@ -294,8 +298,7 @@ class ProductsModule {
       });
     });
 
-    // Appliquer la vue sauvegardée au démarrage (sans re-render)
-    this.applyViewType(this.currentViewType);
+    // CORRECTION : Ne plus appliquer la vue ici car c'est déjà fait dans init()
 
     console.log('✅ Event listeners initialisés');
   }
@@ -376,7 +379,10 @@ class ProductsModule {
         return;
       }
 
-      console.log('✅ Conteneur trouvé, affichage du loader...');
+      console.log('✅ Conteneur trouvé, suppression du loader HTML statique et affichage du loader dynamique...');
+
+      // CORRECTION : Vider complètement le conteneur pour supprimer le loader HTML statique
+      container.innerHTML = '';
 
       // Afficher le loader et garder la référence
       const loader = Loader.show(container, {
