@@ -152,6 +152,16 @@ console.log('🔍 DIAGNOSTIC SempaStocksData:', {
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/ProductCard.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/components/HistoryModal.js?ver=' . $version); ?>"></script>
 
+<!-- Diagnostic HistoryModal -->
+<script>
+console.log('🔍 DIAGNOSTIC HistoryModal:', {
+    exists: typeof HistoryModal !== 'undefined',
+    isClass: typeof HistoryModal === 'function',
+    hasShowMethod: typeof HistoryModal?.show === 'function',
+    windowHistoryModal: typeof window.HistoryModal !== 'undefined'
+});
+</script>
+
 <!-- Données pour JavaScript (doivent être disponibles avant l'API) -->
 <script>
 window.SempaStocksData = <?php echo wp_json_encode([

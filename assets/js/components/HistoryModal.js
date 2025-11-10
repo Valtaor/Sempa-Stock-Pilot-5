@@ -4,6 +4,8 @@
  * Modal pour afficher l'historique des modifications d'un produit
  */
 
+console.log('📦 Chargement de HistoryModal.js...');
+
 class HistoryModal {
   /**
    * Affiche l'historique d'un produit dans une modal
@@ -402,9 +404,11 @@ class HistoryModal {
 // Export global
 if (typeof window !== 'undefined') {
   window.HistoryModal = HistoryModal;
+  console.log('✅ HistoryModal exporté vers window.HistoryModal');
 }
 
 // Export pour utilisation en module ES6
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = HistoryModal;
+  console.log('✅ HistoryModal exporté comme module ES6');
 }
