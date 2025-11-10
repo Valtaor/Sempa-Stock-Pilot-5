@@ -178,6 +178,19 @@ class ProductsModule {
    * Initialise les event listeners
    */
   initEventListeners() {
+    // Soumission du formulaire produit
+    const productForm = document.getElementById('stock-product-form');
+    if (productForm) {
+      productForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        console.log('📝 Soumission du formulaire produit');
+        await this.saveProduct(e.target);
+      });
+      console.log('✅ Listener soumission formulaire produit attaché');
+    } else {
+      console.warn('⚠️ Formulaire produit non trouvé pour attacher le listener');
+    }
+
     // Recherche
     const searchInput = document.getElementById('stocks-search');
     if (searchInput) {
@@ -879,6 +892,51 @@ class ProductsModule {
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     console.log('✅ Formulaire produit ouvert');
+  }
+
+  /**
+   * Sauvegarde un produit (création ou modification)
+   *
+   * @param {HTMLFormElement} form - Formulaire de produit
+   */
+  async saveProduct(form) {
+    console.log('💾 Sauvegarde du produit...');
+
+    try {
+      const formData = new FormData(form);
+
+      // Log des données du formulaire pour debug
+      const productId = formData.get('id');
+      console.log(`📝 ${productId ? 'Modification' : 'Création'} produit ${productId || 'nouveau'}`);
+
+      const response = await fetch(SempaStocksData.ajaxUrl, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.data?.message || 'Erreur lors de la sauvegarde');
+      }
+
+      console.log('✅ Produit sauvegardé:', result.data.product);
+
+      // Afficher un message de succès
+      alert(SempaStocksData.strings.saved || 'Produit enregistré avec succès');
+
+      // Fermer le formulaire
+      this.closeProductForm();
+
+      // Recharger la liste des produits
+      await this.loadProducts();
+      this.renderProducts();
+
+    } catch (error) {
+      console.error('❌ Erreur sauvegarde produit:', error);
+      alert(`Erreur: ${error.message}`);
+    }
   }
 
   /**
