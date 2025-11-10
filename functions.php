@@ -43,6 +43,11 @@ if (file_exists($healthcheck_file)) {
     require_once $healthcheck_file;
 }
 
+$audit_logger_file = __DIR__ . '/includes/audit-logger.php';
+if (file_exists($audit_logger_file)) {
+    require_once $audit_logger_file;
+}
+
 // DÉSACTIVÉ : Le chargement des assets est maintenant fait directement dans stocks.php
 // pour éviter les problèmes de timing avec is_page_template() et is_front_page()
 // qui ne fonctionnent pas toujours correctement dans wp_enqueue_scripts

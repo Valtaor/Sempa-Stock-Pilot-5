@@ -17,6 +17,8 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
                 self::ensure_products_supplier_column();
                 self::ensure_products_etat_materiel_column();
                 self::ensure_audit_trail_columns();
+                self::ensure_audit_log_table();
+                self::ensure_saved_filters_table();
             } catch (\Throwable $exception) {
                 if (function_exists('error_log')) {
                     error_log('[Sempa] Schema setup error: ' . $exception->getMessage());
@@ -221,6 +223,102 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             }
 
             error_log('[Sempa] Audit trail columns added to ' . $table_type . ' table successfully');
+            return true;
+        }
+
+        /**
+         * Create the audit_log table for tracking all changes
+         */
+        private static function ensure_audit_log_table()
+        {
+            $db = Sempa_Stocks_DB::instance();
+
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                error_log('[Sempa] Cannot create audit_log table: database connection not available');
+                return false;
+            }
+
+            // Check if table already exists
+            $table_name = $db->prefix . 'sempa_audit_log';
+            $existing_tables = $db->get_col("SHOW TABLES LIKE '$table_name'");
+            if (!empty($existing_tables)) {
+                return true; // Table already exists
+            }
+
+            // Create the audit_log table
+            $sql = "CREATE TABLE IF NOT EXISTS `$table_name` (
+                `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                `entity_type` VARCHAR(50) NOT NULL COMMENT 'Type d''entité (product, movement, etc.)',
+                `entity_id` INT(11) NOT NULL COMMENT 'ID de l''entité modifiée',
+                `action` VARCHAR(20) NOT NULL COMMENT 'Action (created, updated, deleted)',
+                `user_id` INT(11) NOT NULL COMMENT 'ID utilisateur ayant effectué l''action',
+                `user_name` VARCHAR(255) NOT NULL COMMENT 'Nom de l''utilisateur',
+                `user_email` VARCHAR(255) NOT NULL COMMENT 'Email de l''utilisateur',
+                `old_values` TEXT DEFAULT NULL COMMENT 'Valeurs avant modification (JSON)',
+                `new_values` TEXT DEFAULT NULL COMMENT 'Valeurs après modification (JSON)',
+                `changes_summary` TEXT DEFAULT NULL COMMENT 'Résumé des modifications',
+                `ip_address` VARCHAR(45) DEFAULT NULL COMMENT 'Adresse IP',
+                `user_agent` VARCHAR(500) DEFAULT NULL COMMENT 'User agent',
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `idx_entity` (`entity_type`, `entity_id`),
+                KEY `idx_user` (`user_id`),
+                KEY `idx_action` (`action`),
+                KEY `idx_created` (`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+            $result = $db->query($sql);
+
+            if ($result === false) {
+                error_log('[Sempa] Failed to create audit_log table: ' . $db->last_error);
+                return false;
+            }
+
+            error_log('[Sempa] Audit log table created successfully');
+            return true;
+        }
+
+        /**
+         * Create the saved_filters table for storing user filter presets
+         */
+        private static function ensure_saved_filters_table()
+        {
+            $db = Sempa_Stocks_DB::instance();
+
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                error_log('[Sempa] Cannot create saved_filters table: database connection not available');
+                return false;
+            }
+
+            // Check if table already exists
+            $table_name = $db->prefix . 'sempa_saved_filters';
+            $existing_tables = $db->get_col("SHOW TABLES LIKE '$table_name'");
+            if (!empty($existing_tables)) {
+                return true; // Table already exists
+            }
+
+            // Create the saved_filters table
+            $sql = "CREATE TABLE IF NOT EXISTS `$table_name` (
+                `id` INT(11) NOT NULL AUTO_INCREMENT,
+                `user_id` INT(11) NOT NULL COMMENT 'ID utilisateur propriétaire',
+                `filter_name` VARCHAR(255) NOT NULL COMMENT 'Nom du filtre',
+                `filter_data` TEXT NOT NULL COMMENT 'Données du filtre (JSON)',
+                `is_default` TINYINT(1) DEFAULT 0 COMMENT 'Filtre par défaut',
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `idx_user` (`user_id`),
+                KEY `idx_default` (`user_id`, `is_default`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+            $result = $db->query($sql);
+
+            if ($result === false) {
+                error_log('[Sempa] Failed to create saved_filters table: ' . $db->last_error);
+                return false;
+            }
+
+            error_log('[Sempa] Saved filters table created successfully');
             return true;
         }
     }
