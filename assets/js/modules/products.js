@@ -728,24 +728,20 @@ class ProductsModule {
       }
 
       row.innerHTML = checkboxCell + `
-        <td>${this.escapeHtml(product.reference || '')}</td>
-        <td><strong>${this.escapeHtml(product.designation || '')}</strong></td>
-        <td>${this.escapeHtml(product.categorie || '-')}</td>
-        <td>${this.escapeHtml(product.fournisseur || '-')}</td>
-        <td class="${stockClass}">${stockActuel}</td>
-        <td>${product.prix_achat ? parseFloat(product.prix_achat).toFixed(2) + ' €' : '-'}</td>
-        <td>${product.prix_vente ? parseFloat(product.prix_vente).toFixed(2) + ' €' : '-'}</td>
-        <td><span class="badge badge--${product.etat_materiel === 'neuf' ? 'success' : 'info'}">${this.escapeHtml(product.etat_materiel || 'N/A')}</span></td>
+        <td class="editable" data-field="reference" data-product-id="${product.id}">${this.escapeHtml(product.reference || '')}</td>
+        <td class="editable" data-field="designation" data-product-id="${product.id}"><strong>${this.escapeHtml(product.designation || '')}</strong></td>
+        <td class="editable" data-field="categorie" data-product-id="${product.id}">${this.escapeHtml(product.categorie || '-')}</td>
+        <td class="editable" data-field="fournisseur" data-product-id="${product.id}">${this.escapeHtml(product.fournisseur || '-')}</td>
+        <td class="editable ${stockClass}" data-field="stock_actuel" data-product-id="${product.id}">${stockActuel}</td>
+        <td class="editable" data-field="prix_achat" data-product-id="${product.id}">${product.prix_achat ? parseFloat(product.prix_achat).toFixed(2) + ' €' : '-'}</td>
+        <td class="editable" data-field="prix_vente" data-product-id="${product.id}">${product.prix_vente ? parseFloat(product.prix_vente).toFixed(2) + ' €' : '-'}</td>
+        <td class="editable" data-field="etat_materiel" data-product-id="${product.id}"><span class="badge badge--${product.etat_materiel === 'neuf' ? 'success' : 'info'}">${this.escapeHtml(product.etat_materiel || 'N/A')}</span></td>
         <td>
           <details class="actions-menu">
             <summary class="actions-menu__trigger" aria-label="Actions">
               <i data-lucide="more-horizontal"></i>
             </summary>
             <div class="actions-menu__content">
-              <button data-action="edit" data-product-id="${product.id}">
-                <i data-lucide="edit-2"></i>
-                Modifier
-              </button>
               <button data-action="duplicate" data-product-id="${product.id}">
                 <i data-lucide="copy"></i>
                 Dupliquer
@@ -778,19 +774,27 @@ class ProductsModule {
       }
 
       // Ajouter les event listeners pour les actions
-      const editBtn = row.querySelector('[data-action="edit"]');
       const duplicateBtn = row.querySelector('[data-action="duplicate"]');
       const deleteBtn = row.querySelector('[data-action="delete"]');
 
-      if (editBtn) {
-        editBtn.addEventListener('click', () => this.editProduct(product));
-      }
       if (duplicateBtn) {
         duplicateBtn.addEventListener('click', () => this.duplicateProduct(product));
       }
       if (deleteBtn) {
         deleteBtn.addEventListener('click', () => this.deleteProduct(product));
       }
+
+      // Ajouter les event listeners pour l'édition inline
+      const editableCells = row.querySelectorAll('.editable');
+      editableCells.forEach(cell => {
+        cell.addEventListener('click', (e) => {
+          // Ne pas éditer si on est en mode sélection et qu'on clique sur une checkbox
+          if (this.selectionMode && e.target.closest('.row-checkbox')) {
+            return;
+          }
+          this.makeTableCellEditable(cell, product);
+        });
+      });
 
       tbody.appendChild(row);
     });
@@ -813,6 +817,187 @@ class ProductsModule {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Rend une cellule de tableau éditable
+   *
+   * @param {HTMLElement} cell - La cellule à rendre éditable
+   * @param {Object} product - Le produit associé
+   */
+  makeTableCellEditable(cell, product) {
+    // Éviter l'édition multiple
+    if (cell.querySelector('input, select')) {
+      return;
+    }
+
+    const field = cell.dataset.field;
+    const productId = parseInt(cell.dataset.productId);
+    const originalValue = cell.textContent.trim();
+
+    // Récupérer la valeur brute (sans formatage)
+    let rawValue = originalValue;
+    if (field === 'price_achat' || field === 'price_vente') {
+      rawValue = originalValue.replace(/[€\s]/g, '');
+    }
+
+    // Créer l'élément d'édition approprié
+    let editor;
+
+    if (field === 'etat_materiel') {
+      // Select pour l'état matériel
+      editor = document.createElement('select');
+      editor.innerHTML = `
+        <option value="neuf" ${rawValue === 'neuf' ? 'selected' : ''}>Neuf</option>
+        <option value="reconditionne" ${rawValue === 'reconditionné' ? 'selected' : ''}>Reconditionné</option>
+      `;
+    } else {
+      // Input pour les autres champs
+      editor = document.createElement('input');
+      editor.type = this.getInputTypeForField(field);
+      editor.value = rawValue;
+
+      if (field === 'price_achat' || field === 'price_vente' || field === 'stock_actuel' || field === 'stock_min' || field === 'stock_max') {
+        editor.min = '0';
+        editor.step = field.includes('price') ? '0.01' : '1';
+      }
+    }
+
+    // Remplacer le contenu
+    cell.textContent = '';
+    cell.appendChild(editor);
+    editor.focus();
+
+    if (editor.tagName === 'INPUT') {
+      editor.select();
+    }
+
+    // Fonction de sauvegarde
+    const save = async () => {
+      const newValue = editor.value.trim();
+
+      // Ne rien faire si la valeur n'a pas changé
+      if (newValue === rawValue || (editor.tagName === 'SELECT' && newValue === rawValue)) {
+        cancel();
+        return;
+      }
+
+      // Validation basique
+      if (!newValue && field !== 'emplacement') {
+        alert('La valeur ne peut pas être vide');
+        editor.focus();
+        return;
+      }
+
+      // Afficher un indicateur de chargement
+      cell.textContent = '⏳';
+
+      try {
+        // Sauvegarder via l'API
+        const updateData = { [field]: newValue };
+        await API.updateProduct(productId, updateData);
+
+        // Mettre à jour le produit dans le cache local
+        const productIndex = this.products.findIndex(p => p.id === productId);
+        if (productIndex !== -1) {
+          this.products[productIndex][field] = newValue;
+        }
+
+        // Afficher la nouvelle valeur formatée
+        this.displayCellValue(cell, field, newValue);
+
+        // Notification de succès
+        Notification.show(`${this.getFieldLabel(field)} mis à jour`, 'success');
+
+        console.log(`✅ ${field} mis à jour pour produit ${productId}:`, newValue);
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour:', error);
+        Notification.show('Erreur lors de la mise à jour', 'error');
+        cancel();
+      }
+    };
+
+    // Fonction d'annulation
+    const cancel = () => {
+      this.displayCellValue(cell, field, rawValue);
+    };
+
+    // Event listeners
+    editor.addEventListener('blur', save);
+
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        save();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    });
+  }
+
+  /**
+   * Retourne le type d'input approprié pour un champ
+   *
+   * @param {string} field - Nom du champ
+   * @returns {string} - Type d'input
+   */
+  getInputTypeForField(field) {
+    switch (field) {
+      case 'stock_actuel':
+      case 'stock_min':
+      case 'stock_max':
+        return 'number';
+      case 'price_achat':
+      case 'price_vente':
+        return 'number';
+      default:
+        return 'text';
+    }
+  }
+
+  /**
+   * Affiche la valeur d'une cellule avec le formatage approprié
+   *
+   * @param {HTMLElement} cell - La cellule
+   * @param {string} field - Nom du champ
+   * @param {string} value - Valeur à afficher
+   */
+  displayCellValue(cell, field, value) {
+    cell.textContent = '';
+
+    if (field === 'price_achat' || field === 'price_vente') {
+      cell.textContent = `${parseFloat(value).toFixed(2)} €`;
+    } else if (field === 'etat_materiel') {
+      cell.textContent = value === 'reconditionne' ? 'Reconditionné' : 'Neuf';
+    } else if (field === 'designation') {
+      const strong = document.createElement('strong');
+      strong.textContent = value;
+      cell.appendChild(strong);
+    } else {
+      cell.textContent = value || '';
+    }
+  }
+
+  /**
+   * Retourne le label d'un champ
+   *
+   * @param {string} field - Nom du champ
+   * @returns {string} - Label du champ
+   */
+  getFieldLabel(field) {
+    const labels = {
+      reference: 'Référence',
+      designation: 'Désignation',
+      price_achat: 'Prix d\'achat',
+      price_vente: 'Prix de vente',
+      stock_actuel: 'Stock actuel',
+      stock_min: 'Stock minimum',
+      stock_max: 'Stock maximum',
+      etat_materiel: 'État matériel',
+      emplacement: 'Emplacement'
+    };
+    return labels[field] || field;
   }
 
   /**

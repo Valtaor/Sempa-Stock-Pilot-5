@@ -1007,26 +1007,70 @@
 
 /* Colonne de sélection */
 .stocks-table .selection-column {
-    width: 40px;
-    padding: 0.5rem 1rem;
+    width: 50px;
+    padding: 0.75rem 1rem;
+    background: var(--sp-color-surface-alt);
 }
 
 .stocks-table .selection-cell {
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
 }
 
 .table-checkbox {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    position: relative;
 }
 
 .table-checkbox input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     accent-color: var(--sp-color-primary);
+    transform: scale(1.2);
+    margin: 0;
+}
+
+.table-checkbox input[type="checkbox"]:hover {
+    outline: 2px solid var(--sp-color-primary-light);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Cellules éditables */
+.stocks-table td.editable {
+    cursor: text;
+    position: relative;
+}
+
+.stocks-table td.editable:hover {
+    background: rgba(244, 164, 18, 0.05);
+    outline: 1px solid var(--sp-color-primary-light);
+}
+
+.stocks-table td.editable input,
+.stocks-table td.editable select {
+    width: 100%;
+    padding: 0.4rem;
+    border: 2px solid var(--sp-color-primary);
+    border-radius: 4px;
+    font-size: inherit;
+    font-family: inherit;
+    background: white;
+}
+
+.stocks-table td.editable input:focus,
+.stocks-table td.editable select:focus {
+    outline: none;
+    border-color: var(--sp-color-primary-dark);
+}
+
+.stocks-table td.editing {
+    background: rgba(244, 164, 18, 0.1);
+    padding: 0.5rem;
 }
 
 .stocks-table td.actions {
