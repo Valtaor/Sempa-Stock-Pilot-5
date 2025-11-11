@@ -166,6 +166,19 @@ class API {
   }
 
   /**
+   * Produits - Mettre à jour un produit (mise à jour partielle)
+   *
+   * @param {number} productId - ID du produit
+   * @param {Object} updateData - Données à mettre à jour
+   */
+  async updateProduct(productId, updateData) {
+    return this.post('sempa_stocks_save_product', {
+      id: productId,
+      ...updateData
+    });
+  }
+
+  /**
    * Produits - Mise à jour en masse
    *
    * @param {Array} productIds - IDs des produits à mettre à jour
