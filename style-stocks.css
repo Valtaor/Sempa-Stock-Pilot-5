@@ -996,6 +996,39 @@
     background: rgba(244, 164, 18, 0.08);
 }
 
+.stocks-table tbody tr.selected {
+    background: rgba(244, 164, 18, 0.15);
+    border-left: 3px solid var(--sp-color-primary);
+}
+
+.stocks-table tbody tr.selected:hover {
+    background: rgba(244, 164, 18, 0.20);
+}
+
+/* Colonne de sélection */
+.stocks-table .selection-column {
+    width: 40px;
+    padding: 0.5rem 1rem;
+}
+
+.stocks-table .selection-cell {
+    padding: 0.5rem 1rem;
+}
+
+.table-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.table-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--sp-color-primary);
+}
+
 .stocks-table td.actions {
     width: 70px;
 }

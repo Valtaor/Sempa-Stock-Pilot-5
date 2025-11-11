@@ -631,10 +631,46 @@ class ProductsModule {
   renderProductsTable() {
     console.log('🎨 Rendu des produits en mode tableau');
 
+    const table = document.getElementById('stocks-products-table');
     const tbody = document.getElementById('products-table-body');
-    if (!tbody) {
-      console.error('❌ Tableau tbody non trouvé');
+    if (!tbody || !table) {
+      console.error('❌ Tableau non trouvé');
       return;
+    }
+
+    // Gérer la colonne de sélection dans le thead
+    const thead = table.querySelector('thead tr');
+    if (thead) {
+      let checkboxTh = thead.querySelector('th.selection-column');
+
+      if (this.selectionMode && !checkboxTh) {
+        // Ajouter la colonne checkbox au début
+        checkboxTh = document.createElement('th');
+        checkboxTh.className = 'selection-column';
+        checkboxTh.scope = 'col';
+        checkboxTh.style.width = '40px';
+        checkboxTh.innerHTML = `
+          <label class="table-checkbox">
+            <input type="checkbox" id="select-all-table" aria-label="Tout sélectionner">
+          </label>
+        `;
+        thead.insertBefore(checkboxTh, thead.firstChild);
+
+        // Event listener pour tout sélectionner/désélectionner
+        const selectAllCheckbox = checkboxTh.querySelector('#select-all-table');
+        if (selectAllCheckbox) {
+          selectAllCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+              this.selectAll();
+            } else {
+              this.deselectAll();
+            }
+          });
+        }
+      } else if (!this.selectionMode && checkboxTh) {
+        // Retirer la colonne checkbox
+        checkboxTh.remove();
+      }
     }
 
     // Calculer la pagination
@@ -647,7 +683,8 @@ class ProductsModule {
 
     if (productsToShow.length === 0) {
       const emptyRow = document.createElement('tr');
-      emptyRow.innerHTML = '<td colspan="9" class="empty">Aucun produit à afficher</td>';
+      const colspan = this.selectionMode ? 10 : 9;
+      emptyRow.innerHTML = `<td colspan="${colspan}" class="empty">Aucun produit à afficher</td>`;
       tbody.appendChild(emptyRow);
       return;
     }
@@ -667,7 +704,30 @@ class ProductsModule {
       }
 
       row.className = stockClass;
-      row.innerHTML = `
+      row.setAttribute('data-product-id', product.id);
+
+      // Ajouter la classe selected si le produit est sélectionné
+      if (this.selectedProducts.has(product.id)) {
+        row.classList.add('selected');
+      }
+
+      let checkboxCell = '';
+      if (this.selectionMode) {
+        const isChecked = this.selectedProducts.has(product.id);
+        checkboxCell = `
+          <td class="selection-cell">
+            <label class="table-checkbox">
+              <input type="checkbox"
+                     class="row-checkbox"
+                     ${isChecked ? 'checked' : ''}
+                     data-product-id="${product.id}"
+                     aria-label="Sélectionner ${this.escapeHtml(product.designation)}">
+            </label>
+          </td>
+        `;
+      }
+
+      row.innerHTML = checkboxCell + `
         <td>${this.escapeHtml(product.reference || '')}</td>
         <td><strong>${this.escapeHtml(product.designation || '')}</strong></td>
         <td>${this.escapeHtml(product.categorie || '-')}</td>
@@ -698,6 +758,24 @@ class ProductsModule {
           </details>
         </td>
       `;
+
+      // Event listener pour la checkbox
+      if (this.selectionMode) {
+        const checkbox = row.querySelector('.row-checkbox');
+        if (checkbox) {
+          checkbox.addEventListener('change', (e) => {
+            e.stopPropagation();
+            this.handleProductSelect(product, e.target.checked);
+
+            // Mettre à jour la classe selected sur la ligne
+            if (e.target.checked) {
+              row.classList.add('selected');
+            } else {
+              row.classList.remove('selected');
+            }
+          });
+        }
+      }
 
       // Ajouter les event listeners pour les actions
       const editBtn = row.querySelector('[data-action="edit"]');
@@ -1157,6 +1235,21 @@ class ProductsModule {
       }
     });
 
+    // Mettre à jour toutes les lignes du tableau
+    document.querySelectorAll('.stocks-table tbody tr').forEach(row => {
+      const checkbox = row.querySelector('.row-checkbox');
+      if (checkbox) {
+        checkbox.checked = false;
+        row.classList.remove('selected');
+      }
+    });
+
+    // Décocher la case "tout sélectionner" du tableau
+    const selectAllCheckbox = document.getElementById('select-all-table');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = false;
+    }
+
     // Mettre à jour la barre
     if (this.bulkActionsBar) {
       BulkActionsBar.updateCount(this.bulkActionsBar, 0);
@@ -1174,8 +1267,8 @@ class ProductsModule {
     visibleProducts.forEach(product => {
       this.selectedProducts.add(product.id);
 
-      // Mettre à jour la case à cocher
-      const card = document.querySelector(`[data-product-id="${product.id}"]`);
+      // Mettre à jour dans la grille (cartes)
+      const card = document.querySelector(`.sp-product-card[data-product-id="${product.id}"]`);
       if (card) {
         const checkbox = card.querySelector('[data-action="select"]');
         if (checkbox) {
@@ -1184,7 +1277,23 @@ class ProductsModule {
           card.setAttribute('data-selected', 'true');
         }
       }
+
+      // Mettre à jour dans le tableau
+      const row = document.querySelector(`.stocks-table tbody tr[data-product-id="${product.id}"]`);
+      if (row) {
+        const checkbox = row.querySelector('.row-checkbox');
+        if (checkbox) {
+          checkbox.checked = true;
+          row.classList.add('selected');
+        }
+      }
     });
+
+    // Cocher la case "tout sélectionner" du tableau
+    const selectAllCheckbox = document.getElementById('select-all-table');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = true;
+    }
 
     // Mettre à jour la barre
     if (this.bulkActionsBar) {
