@@ -1395,6 +1395,120 @@ class ProductsModule {
   }
 
   /**
+   * Affiche le modal pour changer le prix d'achat
+   */
+  async showChangePriceAchatModal() {
+    const selectedCount = this.selectedProducts.size;
+    const price = prompt(`Nouveau prix d'achat pour ${selectedCount} produit(s) (€):`);
+
+    if (price === null) return; // Annulé
+
+    const priceValue = parseFloat(price);
+    if (isNaN(priceValue) || priceValue < 0) {
+      alert('Prix invalide. Entrez un nombre positif.');
+      return;
+    }
+
+    await this.bulkUpdatePriceAchat(priceValue);
+  }
+
+  /**
+   * Affiche le modal pour changer le prix de vente
+   */
+  async showChangePriceVenteModal() {
+    const selectedCount = this.selectedProducts.size;
+    const price = prompt(`Nouveau prix de vente pour ${selectedCount} produit(s) (€):`);
+
+    if (price === null) return; // Annulé
+
+    const priceValue = parseFloat(price);
+    if (isNaN(priceValue) || priceValue < 0) {
+      alert('Prix invalide. Entrez un nombre positif.');
+      return;
+    }
+
+    await this.bulkUpdatePriceVente(priceValue);
+  }
+
+  /**
+   * Affiche le modal pour changer le stock minimum
+   */
+  async showChangeStockMinModal() {
+    const selectedCount = this.selectedProducts.size;
+    const stock = prompt(`Nouveau stock minimum pour ${selectedCount} produit(s):`);
+
+    if (stock === null) return; // Annulé
+
+    const stockValue = parseInt(stock);
+    if (isNaN(stockValue) || stockValue < 0) {
+      alert('Stock invalide. Entrez un nombre entier positif.');
+      return;
+    }
+
+    await this.bulkUpdateStockMin(stockValue);
+  }
+
+  /**
+   * Affiche le modal pour changer le stock maximum
+   */
+  async showChangeStockMaxModal() {
+    const selectedCount = this.selectedProducts.size;
+    const stock = prompt(`Nouveau stock maximum pour ${selectedCount} produit(s):`);
+
+    if (stock === null) return; // Annulé
+
+    const stockValue = parseInt(stock);
+    if (isNaN(stockValue) || stockValue < 0) {
+      alert('Stock invalide. Entrez un nombre entier positif.');
+      return;
+    }
+
+    await this.bulkUpdateStockMax(stockValue);
+  }
+
+  /**
+   * Affiche le modal pour changer l'emplacement
+   */
+  async showChangeEmplacementModal() {
+    const selectedCount = this.selectedProducts.size;
+    const emplacement = prompt(`Nouvel emplacement pour ${selectedCount} produit(s):`);
+
+    if (emplacement === null) return; // Annulé
+
+    await this.bulkUpdateEmplacement(emplacement.trim());
+  }
+
+  /**
+   * Affiche le modal pour modifier la référence
+   */
+  async showChangeReferenceModal() {
+    const selectedCount = this.selectedProducts.size;
+    const action = prompt(`Modification de référence pour ${selectedCount} produit(s):\n\n1. Ajouter un préfixe\n2. Ajouter un suffixe\n3. Remplacer complètement`);
+
+    if (action === null) return; // Annulé
+
+    let value, mode;
+    if (action === '1') {
+      value = prompt('Préfixe à ajouter:');
+      if (value === null) return;
+      mode = 'prefix';
+    } else if (action === '2') {
+      value = prompt('Suffixe à ajouter:');
+      if (value === null) return;
+      mode = 'suffix';
+    } else if (action === '3') {
+      value = prompt('Nouvelle référence:');
+      if (value === null) return;
+      mode = 'replace';
+    } else {
+      alert('Action invalide. Choisissez 1, 2 ou 3.');
+      return;
+    }
+
+    await this.bulkUpdateReference(mode, value.trim());
+  }
+
+  /**
    * Supprime les produits sélectionnés
    */
   async deleteSelectedProducts() {
@@ -1544,6 +1658,175 @@ class ProductsModule {
       console.error('❌ Erreur lors de la mise à jour de l\'état:', error);
       if (window.StockPilotNotification) {
         window.StockPilotNotification.error('Erreur lors de la mise à jour de l\'état');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour le prix d'achat en masse
+   */
+  async bulkUpdatePriceAchat(price) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`💰 Mise à jour prix d'achat pour ${selectedIds.length} produits:`, price);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'price_achat', price);
+
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Prix d'achat mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour prix d\'achat réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du prix d\'achat:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour du prix d\'achat');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour le prix de vente en masse
+   */
+  async bulkUpdatePriceVente(price) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`💰 Mise à jour prix de vente pour ${selectedIds.length} produits:`, price);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'price_vente', price);
+
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Prix de vente mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour prix de vente réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du prix de vente:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour du prix de vente');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour le stock minimum en masse
+   */
+  async bulkUpdateStockMin(stock) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`📊 Mise à jour stock minimum pour ${selectedIds.length} produits:`, stock);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'stock_min', stock);
+
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Stock minimum mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour stock minimum réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du stock minimum:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour du stock minimum');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour le stock maximum en masse
+   */
+  async bulkUpdateStockMax(stock) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`📊 Mise à jour stock maximum pour ${selectedIds.length} produits:`, stock);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'stock_max', stock);
+
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Stock maximum mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour stock maximum réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du stock maximum:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour du stock maximum');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour l'emplacement en masse
+   */
+  async bulkUpdateEmplacement(emplacement) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`📍 Mise à jour emplacement pour ${selectedIds.length} produits:`, emplacement);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'emplacement', emplacement);
+
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Emplacement mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour emplacement réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de l\'emplacement:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour de l\'emplacement');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour la référence en masse
+   */
+  async bulkUpdateReference(mode, value) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`🔤 Mise à jour référence pour ${selectedIds.length} produits:`, mode, value);
+
+    try {
+      const apiClient = await this.getApiClient();
+      // Envoyer mode et value comme objet JSON
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'reference', JSON.stringify({ mode, value }));
+
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Référence mise à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour référence réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de la référence:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour de la référence');
       }
     }
 

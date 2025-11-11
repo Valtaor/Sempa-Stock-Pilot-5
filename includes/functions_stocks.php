@@ -519,7 +519,8 @@ final class Sempa_Stocks_App
             wp_send_json_error(['message' => __('Aucun produit sélectionné.', 'sempa')], 400);
         }
 
-        if (!in_array($action, ['category', 'supplier', 'stock', 'state'], true)) {
+        $valid_actions = ['category', 'supplier', 'stock', 'state', 'price_achat', 'price_vente', 'stock_min', 'stock_max', 'emplacement', 'reference'];
+        if (!in_array($action, $valid_actions, true)) {
             wp_send_json_error(['message' => __('Action invalide.', 'sempa')], 400);
         }
 
@@ -583,6 +584,52 @@ final class Sempa_Stocks_App
                         $audit_action = 'bulk_update_stock';
                     } else {
                         $errors[] = "Format invalide pour produit #$id: $adjustment";
+                        continue 2;
+                    }
+                    break;
+
+                case 'price_achat':
+                    $update_data['prix_achat'] = floatval($value);
+                    $audit_action = 'bulk_update_price_achat';
+                    break;
+
+                case 'price_vente':
+                    $update_data['prix_vente'] = floatval($value);
+                    $audit_action = 'bulk_update_price_vente';
+                    break;
+
+                case 'stock_min':
+                    $update_data['stock_minimum'] = intval($value);
+                    $audit_action = 'bulk_update_stock_min';
+                    break;
+
+                case 'stock_max':
+                    $update_data['stock_maximum'] = intval($value);
+                    $audit_action = 'bulk_update_stock_max';
+                    break;
+
+                case 'emplacement':
+                    $update_data['emplacement'] = sanitize_text_field($value);
+                    $audit_action = 'bulk_update_emplacement';
+                    break;
+
+                case 'reference':
+                    // Gérer la modification de référence (prefix, suffix, replace)
+                    $ref_data = json_decode($value, true);
+                    if ($ref_data && isset($ref_data['mode']) && isset($ref_data['value'])) {
+                        $current_ref = $old_product['reference'] ?? '';
+                        $new_value = sanitize_text_field($ref_data['value']);
+
+                        if ($ref_data['mode'] === 'prefix') {
+                            $update_data['reference'] = $new_value . $current_ref;
+                        } elseif ($ref_data['mode'] === 'suffix') {
+                            $update_data['reference'] = $current_ref . $new_value;
+                        } elseif ($ref_data['mode'] === 'replace') {
+                            $update_data['reference'] = $new_value;
+                        }
+                        $audit_action = 'bulk_update_reference';
+                    } else {
+                        $errors[] = "Données de référence invalides pour produit #$id";
                         continue 2;
                     }
                     break;
