@@ -16,6 +16,12 @@ class BulkActionsBar {
    * @param {Function} options.onChangeSupplier - Callback pour changer le fournisseur
    * @param {Function} options.onAdjustStock - Callback pour ajuster le stock
    * @param {Function} options.onChangeState - Callback pour changer l'état matériel
+   * @param {Function} options.onChangePriceAchat - Callback pour changer le prix d'achat
+   * @param {Function} options.onChangePriceVente - Callback pour changer le prix de vente
+   * @param {Function} options.onChangeStockMin - Callback pour changer le stock minimum
+   * @param {Function} options.onChangeStockMax - Callback pour changer le stock maximum
+   * @param {Function} options.onChangeEmplacement - Callback pour changer l'emplacement
+   * @param {Function} options.onChangeReference - Callback pour modifier la référence
    * @param {Function} options.onDelete - Callback pour supprimer
    * @param {Array} options.categories - Liste des catégories disponibles
    * @param {Array} options.suppliers - Liste des fournisseurs disponibles
@@ -30,6 +36,12 @@ class BulkActionsBar {
       onChangeSupplier = null,
       onAdjustStock = null,
       onChangeState = null,
+      onChangePriceAchat = null,
+      onChangePriceVente = null,
+      onChangeStockMin = null,
+      onChangeStockMax = null,
+      onChangeEmplacement = null,
+      onChangeReference = null,
       onDelete = null,
       categories = [],
       suppliers = [],
@@ -49,9 +61,9 @@ class BulkActionsBar {
           <span class="sp-bulk-actions-bar__label">${selectedCount > 1 ? 'produits sélectionnés' : 'produit sélectionné'}</span>
         </div>
 
-        <!-- Actions -->
+        <!-- Actions principales -->
         <div class="sp-bulk-actions-bar__actions">
-          <!-- Changer catégorie -->
+          <!-- Catégorie -->
           <button type="button"
                   class="sp-bulk-actions-bar__action"
                   data-action="change-category"
@@ -60,7 +72,7 @@ class BulkActionsBar {
             <span>Catégorie</span>
           </button>
 
-          <!-- Changer fournisseur -->
+          <!-- Fournisseur -->
           <button type="button"
                   class="sp-bulk-actions-bar__action"
                   data-action="change-supplier"
@@ -69,22 +81,76 @@ class BulkActionsBar {
             <span>Fournisseur</span>
           </button>
 
-          <!-- Ajuster stock -->
+          <!-- Stock -->
           <button type="button"
                   class="sp-bulk-actions-bar__action"
                   data-action="adjust-stock"
-                  title="Ajuster le stock">
+                  title="Ajuster le stock actuel">
             <i data-lucide="package"></i>
             <span>Stock</span>
           </button>
 
-          <!-- Changer état -->
+          <!-- Stock Min -->
+          <button type="button"
+                  class="sp-bulk-actions-bar__action"
+                  data-action="change-stock-min"
+                  title="Définir le stock minimum">
+            <i data-lucide="arrow-down-to-line"></i>
+            <span>Stock min</span>
+          </button>
+
+          <!-- Stock Max -->
+          <button type="button"
+                  class="sp-bulk-actions-bar__action"
+                  data-action="change-stock-max"
+                  title="Définir le stock maximum">
+            <i data-lucide="arrow-up-to-line"></i>
+            <span>Stock max</span>
+          </button>
+
+          <!-- Prix d'achat -->
+          <button type="button"
+                  class="sp-bulk-actions-bar__action"
+                  data-action="change-price-achat"
+                  title="Modifier le prix d'achat">
+            <i data-lucide="euro"></i>
+            <span>Prix achat</span>
+          </button>
+
+          <!-- Prix de vente -->
+          <button type="button"
+                  class="sp-bulk-actions-bar__action"
+                  data-action="change-price-vente"
+                  title="Modifier le prix de vente">
+            <i data-lucide="coins"></i>
+            <span>Prix vente</span>
+          </button>
+
+          <!-- État -->
           <button type="button"
                   class="sp-bulk-actions-bar__action"
                   data-action="change-state"
                   title="Changer l'état matériel">
             <i data-lucide="tag"></i>
             <span>État</span>
+          </button>
+
+          <!-- Emplacement -->
+          <button type="button"
+                  class="sp-bulk-actions-bar__action"
+                  data-action="change-emplacement"
+                  title="Modifier l'emplacement">
+            <i data-lucide="map-pin"></i>
+            <span>Emplacement</span>
+          </button>
+
+          <!-- Référence -->
+          <button type="button"
+                  class="sp-bulk-actions-bar__action"
+                  data-action="change-reference"
+                  title="Modifier la référence">
+            <i data-lucide="hash"></i>
+            <span>Référence</span>
           </button>
 
           <!-- Supprimer -->
@@ -117,6 +183,12 @@ class BulkActionsBar {
       onChangeSupplier,
       onAdjustStock,
       onChangeState,
+      onChangePriceAchat,
+      onChangePriceVente,
+      onChangeStockMin,
+      onChangeStockMax,
+      onChangeEmplacement,
+      onChangeReference,
       onDelete,
     });
 
@@ -163,6 +235,12 @@ class BulkActionsBar {
       onChangeSupplier,
       onAdjustStock,
       onChangeState,
+      onChangePriceAchat,
+      onChangePriceVente,
+      onChangeStockMin,
+      onChangeStockMax,
+      onChangeEmplacement,
+      onChangeReference,
       onDelete,
     } = callbacks;
 
@@ -190,10 +268,46 @@ class BulkActionsBar {
       adjustStockBtn.addEventListener('click', () => onAdjustStock());
     }
 
+    // Changer stock min
+    const changeStockMinBtn = bar.querySelector('[data-action="change-stock-min"]');
+    if (changeStockMinBtn && onChangeStockMin) {
+      changeStockMinBtn.addEventListener('click', () => onChangeStockMin());
+    }
+
+    // Changer stock max
+    const changeStockMaxBtn = bar.querySelector('[data-action="change-stock-max"]');
+    if (changeStockMaxBtn && onChangeStockMax) {
+      changeStockMaxBtn.addEventListener('click', () => onChangeStockMax());
+    }
+
+    // Changer prix d'achat
+    const changePriceAchatBtn = bar.querySelector('[data-action="change-price-achat"]');
+    if (changePriceAchatBtn && onChangePriceAchat) {
+      changePriceAchatBtn.addEventListener('click', () => onChangePriceAchat());
+    }
+
+    // Changer prix de vente
+    const changePriceVenteBtn = bar.querySelector('[data-action="change-price-vente"]');
+    if (changePriceVenteBtn && onChangePriceVente) {
+      changePriceVenteBtn.addEventListener('click', () => onChangePriceVente());
+    }
+
     // Changer état
     const changeStateBtn = bar.querySelector('[data-action="change-state"]');
     if (changeStateBtn && onChangeState) {
       changeStateBtn.addEventListener('click', () => onChangeState());
+    }
+
+    // Changer emplacement
+    const changeEmplacementBtn = bar.querySelector('[data-action="change-emplacement"]');
+    if (changeEmplacementBtn && onChangeEmplacement) {
+      changeEmplacementBtn.addEventListener('click', () => onChangeEmplacement());
+    }
+
+    // Changer référence
+    const changeReferenceBtn = bar.querySelector('[data-action="change-reference"]');
+    if (changeReferenceBtn && onChangeReference) {
+      changeReferenceBtn.addEventListener('click', () => onChangeReference());
     }
 
     // Supprimer

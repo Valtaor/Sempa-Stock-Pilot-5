@@ -14,8 +14,8 @@
   border-radius: var(--sp-radius-lg);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   padding: var(--sp-spacing-lg);
-  min-width: 600px;
-  max-width: 90vw;
+  min-width: 800px;
+  max-width: 95vw;
   transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -60,6 +60,27 @@
   display: flex;
   align-items: center;
   gap: var(--sp-spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+
+.sp-bulk-actions-bar__actions::-webkit-scrollbar {
+  height: 6px;
+}
+
+.sp-bulk-actions-bar__actions::-webkit-scrollbar-track {
+  background: var(--sp-gray-100);
+  border-radius: 3px;
+}
+
+.sp-bulk-actions-bar__actions::-webkit-scrollbar-thumb {
+  background: var(--sp-gray-300);
+  border-radius: 3px;
+}
+
+.sp-bulk-actions-bar__actions::-webkit-scrollbar-thumb:hover {
+  background: var(--sp-gray-400);
 }
 
 .sp-bulk-actions-bar__action {

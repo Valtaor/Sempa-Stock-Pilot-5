@@ -1173,6 +1173,12 @@ class ProductsModule {
       onChangeSupplier: () => this.showChangeSupplierModal(),
       onAdjustStock: () => this.showAdjustStockModal(),
       onChangeState: () => this.showChangeStateModal(),
+      onChangePriceAchat: () => this.showChangePriceAchatModal(),
+      onChangePriceVente: () => this.showChangePriceVenteModal(),
+      onChangeStockMin: () => this.showChangeStockMinModal(),
+      onChangeStockMax: () => this.showChangeStockMaxModal(),
+      onChangeEmplacement: () => this.showChangeEmplacementModal(),
+      onChangeReference: () => this.showChangeReferenceModal(),
       onDelete: () => this.deleteSelectedProducts(),
       categories: [], // Sera rempli dynamiquement
       suppliers: [],  // Sera rempli dynamiquement
