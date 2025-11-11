@@ -578,6 +578,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <span><?php esc_html_e('Tableau', 'sempa'); ?></span>
                                     </button>
                                 </div>
+                                <button type="button" class="button button--ghost" id="stocks-toggle-selection-mode">
+                                    <i data-lucide="check-square"></i>
+                                    <span><?php esc_html_e('Sélectionner', 'sempa'); ?></span>
+                                </button>
                                 <button type="button" class="button button--primary" id="stocks-open-product-form"><?php esc_html_e('Ajouter un produit', 'sempa'); ?></button>
                             </div>
                         </div>

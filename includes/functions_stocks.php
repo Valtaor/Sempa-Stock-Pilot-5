@@ -24,6 +24,8 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_products', [__CLASS__, 'ajax_products']);
         add_action('wp_ajax_sempa_stocks_save_product', [__CLASS__, 'ajax_save_product']);
         add_action('wp_ajax_sempa_stocks_delete_product', [__CLASS__, 'ajax_delete_product']);
+        add_action('wp_ajax_sempa_stocks_bulk_update', [__CLASS__, 'ajax_bulk_update']);
+        add_action('wp_ajax_sempa_stocks_bulk_delete', [__CLASS__, 'ajax_bulk_delete']);
         add_action('wp_ajax_sempa_stocks_movements', [__CLASS__, 'ajax_movements']);
         add_action('wp_ajax_sempa_stocks_record_movement', [__CLASS__, 'ajax_record_movement']);
         add_action('wp_ajax_sempa_stocks_export_csv', [__CLASS__, 'ajax_export_csv']);
@@ -497,6 +499,242 @@ final class Sempa_Stocks_App
         }
 
         wp_send_json_success();
+    }
+
+    /**
+     * Mise à jour en masse de produits (catégorie, fournisseur, stock, état)
+     */
+    public static function ajax_bulk_update()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        // Récupérer les paramètres
+        $ids = isset($_POST['ids']) ? array_map('absint', (array) $_POST['ids']) : [];
+        $action = isset($_POST['update_action']) ? sanitize_text_field($_POST['update_action']) : '';
+        $value = isset($_POST['value']) ? $_POST['value'] : '';
+
+        // Validation
+        if (empty($ids)) {
+            wp_send_json_error(['message' => __('Aucun produit sélectionné.', 'sempa')], 400);
+        }
+
+        if (!in_array($action, ['category', 'supplier', 'stock', 'state'], true)) {
+            wp_send_json_error(['message' => __('Action invalide.', 'sempa')], 400);
+        }
+
+        $db = Sempa_Stocks_DB::instance();
+        $table = Sempa_Stocks_DB::table('stocks_sempa');
+        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+        $user = wp_get_current_user();
+
+        $success_count = 0;
+        $errors = [];
+
+        foreach ($ids as $id) {
+            if ($id <= 0) continue;
+
+            // Récupérer le produit avant modification pour l'audit
+            $old_product = $db->get_row($db->prepare(
+                'SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d',
+                $id
+            ), ARRAY_A);
+
+            if (!$old_product) {
+                $errors[] = "Produit #$id introuvable";
+                continue;
+            }
+
+            // Préparer les données de mise à jour selon l'action
+            $update_data = [];
+            $audit_action = '';
+
+            switch ($action) {
+                case 'category':
+                    $update_data['categorie'] = sanitize_text_field($value);
+                    $audit_action = 'bulk_update_category';
+                    break;
+
+                case 'supplier':
+                    $update_data['fournisseur'] = sanitize_text_field($value);
+                    $audit_action = 'bulk_update_supplier';
+                    break;
+
+                case 'state':
+                    $update_data['etat_materiel'] = sanitize_text_field($value);
+                    $audit_action = 'bulk_update_state';
+                    break;
+
+                case 'stock':
+                    // Format: +10, -5 ou =20
+                    $adjustment = sanitize_text_field($value);
+                    if (preg_match('/^([+\-=])(\d+)$/', $adjustment, $matches)) {
+                        $operator = $matches[1];
+                        $amount = (int) $matches[2];
+                        $current_stock = (int) ($old_product['stock_actuel'] ?? 0);
+
+                        if ($operator === '+') {
+                            $update_data['stock_actuel'] = $current_stock + $amount;
+                        } elseif ($operator === '-') {
+                            $update_data['stock_actuel'] = max(0, $current_stock - $amount);
+                        } else { // =
+                            $update_data['stock_actuel'] = $amount;
+                        }
+                        $audit_action = 'bulk_update_stock';
+                    } else {
+                        $errors[] = "Format invalide pour produit #$id: $adjustment";
+                        continue 2;
+                    }
+                    break;
+            }
+
+            // Ajouter les métadonnées de modification
+            $update_data['modified_by'] = $user->ID;
+            $update_data['modified_at'] = current_time('mysql');
+
+            // Normaliser les colonnes
+            $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $update_data);
+            $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
+
+            if (empty($normalized_data) || empty($where)) {
+                $errors[] = "Impossible de normaliser les données pour produit #$id";
+                continue;
+            }
+
+            // Effectuer la mise à jour
+            $updated = $db->update($table, $normalized_data, $where);
+
+            if ($updated === false) {
+                $errors[] = "Erreur lors de la mise à jour du produit #$id: " . $db->last_error;
+                continue;
+            }
+
+            // Récupérer le produit après modification
+            $new_product = $db->get_row($db->prepare(
+                'SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d',
+                $id
+            ), ARRAY_A);
+
+            // Logger dans l'audit
+            if (class_exists('Sempa_Audit_Logger') && $new_product) {
+                Sempa_Audit_Logger::log(
+                    'product',
+                    $id,
+                    $audit_action,
+                    self::format_product($old_product),
+                    self::format_product($new_product)
+                );
+            }
+
+            $success_count++;
+        }
+
+        // Préparer la réponse
+        if ($success_count > 0) {
+            $message = sprintf(
+                _n('%d produit mis à jour avec succès.', '%d produits mis à jour avec succès.', $success_count, 'sempa'),
+                $success_count
+            );
+            if (!empty($errors)) {
+                $message .= ' ' . sprintf(__('%d erreur(s) rencontrée(s).', 'sempa'), count($errors));
+            }
+            wp_send_json_success([
+                'message' => $message,
+                'success_count' => $success_count,
+                'errors' => $errors
+            ]);
+        } else {
+            wp_send_json_error([
+                'message' => __('Aucun produit n\'a pu être mis à jour.', 'sempa'),
+                'errors' => $errors
+            ], 400);
+        }
+    }
+
+    /**
+     * Suppression en masse de produits
+     */
+    public static function ajax_bulk_delete()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        // Récupérer les IDs
+        $ids = isset($_POST['ids']) ? array_map('absint', (array) $_POST['ids']) : [];
+
+        if (empty($ids)) {
+            wp_send_json_error(['message' => __('Aucun produit sélectionné.', 'sempa')], 400);
+        }
+
+        $db = Sempa_Stocks_DB::instance();
+        $table = Sempa_Stocks_DB::table('stocks_sempa');
+        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+
+        $success_count = 0;
+        $errors = [];
+
+        foreach ($ids as $id) {
+            if ($id <= 0) continue;
+
+            // Récupérer le produit avant suppression pour l'audit
+            $product = $db->get_row($db->prepare(
+                'SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d',
+                $id
+            ), ARRAY_A);
+
+            if (!$product) {
+                $errors[] = "Produit #$id introuvable";
+                continue;
+            }
+
+            // Supprimer le produit
+            $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
+            if (empty($where)) {
+                $errors[] = "Impossible de normaliser l'ID pour produit #$id";
+                continue;
+            }
+
+            $deleted = $db->delete($table, $where);
+
+            if ($deleted === false) {
+                $errors[] = "Erreur lors de la suppression du produit #$id: " . $db->last_error;
+                continue;
+            }
+
+            // Logger la suppression dans l'audit
+            if (class_exists('Sempa_Audit_Logger')) {
+                Sempa_Audit_Logger::log(
+                    'product',
+                    $id,
+                    'bulk_deleted',
+                    self::format_product($product),
+                    null
+                );
+            }
+
+            $success_count++;
+        }
+
+        // Préparer la réponse
+        if ($success_count > 0) {
+            $message = sprintf(
+                _n('%d produit supprimé avec succès.', '%d produits supprimés avec succès.', $success_count, 'sempa'),
+                $success_count
+            );
+            if (!empty($errors)) {
+                $message .= ' ' . sprintf(__('%d erreur(s) rencontrée(s).', 'sempa'), count($errors));
+            }
+            wp_send_json_success([
+                'message' => $message,
+                'success_count' => $success_count,
+                'errors' => $errors
+            ]);
+        } else {
+            wp_send_json_error([
+                'message' => __('Aucun produit n\'a pu être supprimé.', 'sempa'),
+                'errors' => $errors
+            ], 400);
+        }
     }
 
     public static function ajax_movements()

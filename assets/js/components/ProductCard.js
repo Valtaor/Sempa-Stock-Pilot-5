@@ -376,6 +376,7 @@ class ProductCard {
    *
    * @param {Array} products - Tableau de produits
    * @param {Object} options - Options d'affichage
+   * @param {Function} options.isSelected - Fonction qui retourne true si un produit est sélectionné
    * @returns {HTMLElement} - Conteneur de la grille
    */
   static renderGrid(products, options = {}) {
@@ -392,8 +393,19 @@ class ProductCard {
       return grid;
     }
 
+    const { isSelected, ...restOptions } = options;
+
     products.forEach(product => {
-      const card = this.render(product, options);
+      // Déterminer si ce produit est sélectionné
+      const selected = typeof isSelected === 'function' ? isSelected(product) : false;
+
+      // Créer la carte avec les options + selected pour ce produit
+      const cardOptions = {
+        ...restOptions,
+        selected
+      };
+
+      const card = this.render(product, cardOptions);
       grid.appendChild(card);
     });
 
