@@ -1103,7 +1103,7 @@ class ProductsModule {
     // Ajouter au DOM
     document.body.appendChild(this.bulkActionsBar);
 
-    console.log('✅ Barre d'actions en masse initialisée');
+    console.log('✅ Barre d\'actions en masse initialisée');
   }
 
   /**
