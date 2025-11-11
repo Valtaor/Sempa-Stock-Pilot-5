@@ -166,6 +166,32 @@ class API {
   }
 
   /**
+   * Produits - Mise à jour en masse
+   *
+   * @param {Array} productIds - IDs des produits à mettre à jour
+   * @param {string} action - Type de mise à jour (category, supplier, stock, state)
+   * @param {string} value - Nouvelle valeur
+   */
+  async bulkUpdateProducts(productIds, action, value) {
+    return this.post('sempa_stocks_bulk_update', {
+      ids: productIds,
+      update_action: action,
+      value: value
+    });
+  }
+
+  /**
+   * Produits - Suppression en masse
+   *
+   * @param {Array} productIds - IDs des produits à supprimer
+   */
+  async bulkDeleteProducts(productIds) {
+    return this.post('sempa_stocks_bulk_delete', {
+      ids: productIds
+    });
+  }
+
+  /**
    * Mouvements - Récupérer la liste
    */
   async getMovements(filters = {}) {

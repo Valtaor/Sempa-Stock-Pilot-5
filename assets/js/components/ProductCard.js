@@ -27,6 +27,9 @@ class ProductCard {
    * @param {Function} options.onDuplicate - Callback lors du clic sur dupliquer
    * @param {Function} options.onDelete - Callback lors du clic sur supprimer
    * @param {Function} options.onHistory - Callback lors du clic sur historique
+   * @param {Function} options.onSelect - Callback lors de la sélection
+   * @param {boolean} options.selectable - Afficher la case à cocher
+   * @param {boolean} options.selected - Produit sélectionné
    * @returns {HTMLElement} - Élément DOM de la carte
    */
   static render(product, options = {}) {
@@ -35,6 +38,9 @@ class ProductCard {
       onDuplicate = null,
       onDelete = null,
       onHistory = null,
+      onSelect = null,
+      selectable = false,
+      selected = false,
     } = options;
 
     // Calculer le statut du stock
@@ -42,9 +48,12 @@ class ProductCard {
 
     // Créer le conteneur de la carte
     const card = document.createElement('article');
-    card.className = 'sp-product-card';
+    card.className = 'sp-product-card' + (selected ? ' sp-product-card--selected' : '');
     card.setAttribute('data-product-id', product.id);
     card.setAttribute('data-status', stockStatus.variant);
+    if (selected) {
+      card.setAttribute('data-selected', 'true');
+    }
 
     // Image ou placeholder
     const imageUrl = product.document_url && product.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
@@ -71,6 +80,17 @@ class ProductCard {
     // Contenu HTML de la carte
     card.innerHTML = `
       <div class="sp-product-card__image">
+        ${selectable ? `
+          <label class="sp-product-card__checkbox" onclick="event.stopPropagation()">
+            <input type="checkbox"
+                   ${selected ? 'checked' : ''}
+                   data-action="select"
+                   aria-label="Sélectionner ${this.escapeHtml(product.designation)}">
+            <span class="sp-product-card__checkbox-mark">
+              <i data-lucide="check"></i>
+            </span>
+          </label>
+        ` : ''}
         ${imageHTML}
         <div class="sp-product-card__badge">
           ${badge}
@@ -165,7 +185,7 @@ class ProductCard {
     `;
 
     // Attacher les event listeners
-    this.attachEventListeners(card, product, { onEdit, onDuplicate, onDelete, onHistory });
+    this.attachEventListeners(card, product, { onEdit, onDuplicate, onDelete, onHistory, onSelect });
 
     return card;
   }
@@ -178,7 +198,25 @@ class ProductCard {
    * @param {Object} callbacks - Callbacks pour les actions
    */
   static attachEventListeners(card, product, callbacks) {
-    const { onEdit, onDuplicate, onDelete, onHistory } = callbacks;
+    const { onEdit, onDuplicate, onDelete, onHistory, onSelect } = callbacks;
+
+    // Case à cocher (sélection)
+    const checkbox = card.querySelector('[data-action="select"]');
+    if (checkbox && onSelect) {
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        onSelect(product, e.target.checked);
+
+        // Mettre à jour la classe de la carte
+        if (e.target.checked) {
+          card.classList.add('sp-product-card--selected');
+          card.setAttribute('data-selected', 'true');
+        } else {
+          card.classList.remove('sp-product-card--selected');
+          card.removeAttribute('data-selected');
+        }
+      });
+    }
 
     // Bouton historique
     const historyBtn = card.querySelector('[data-action="history"]');
@@ -222,8 +260,8 @@ class ProductCard {
 
     // Clic sur la carte entière pour éditer
     card.addEventListener('click', (e) => {
-      // Ne pas déclencher si on a cliqué sur un bouton ou un lien
-      if (e.target.closest('button, a')) {
+      // Ne pas déclencher si on a cliqué sur un bouton, un lien ou la case à cocher
+      if (e.target.closest('button, a, .sp-product-card__checkbox')) {
         return;
       }
       if (onEdit) {
@@ -338,6 +376,7 @@ class ProductCard {
    *
    * @param {Array} products - Tableau de produits
    * @param {Object} options - Options d'affichage
+   * @param {Function} options.isSelected - Fonction qui retourne true si un produit est sélectionné
    * @returns {HTMLElement} - Conteneur de la grille
    */
   static renderGrid(products, options = {}) {
@@ -354,8 +393,19 @@ class ProductCard {
       return grid;
     }
 
+    const { isSelected, ...restOptions } = options;
+
     products.forEach(product => {
-      const card = this.render(product, options);
+      // Déterminer si ce produit est sélectionné
+      const selected = typeof isSelected === 'function' ? isSelected(product) : false;
+
+      // Créer la carte avec les options + selected pour ce produit
+      const cardOptions = {
+        ...restOptions,
+        selected
+      };
+
+      const card = this.render(product, cardOptions);
       grid.appendChild(card);
     });
 

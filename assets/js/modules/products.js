@@ -19,6 +19,11 @@ class ProductsModule {
     };
     this.currentViewType = localStorage.getItem('productsViewType') || 'grid'; // 'grid' ou 'table'
     this.initialized = false;
+
+    // Gestion de la sélection multiple
+    this.selectedProducts = new Set(); // IDs des produits sélectionnés
+    this.bulkActionsBar = null; // Instance de la barre d'actions
+    this.selectionMode = false; // Mode sélection activé/désactivé
   }
 
   /**
@@ -80,6 +85,9 @@ class ProductsModule {
 
       // Initialiser les event listeners (sans réappliquer la vue)
       this.initEventListeners();
+
+      // Initialiser la barre d'actions en masse
+      this.initBulkActionsBar();
 
       // Afficher les produits
       this.renderProducts();
@@ -311,6 +319,22 @@ class ProductsModule {
       });
     });
 
+    // Toggle mode sélection
+    const toggleSelectionBtn = document.getElementById('stocks-toggle-selection-mode');
+    if (toggleSelectionBtn) {
+      toggleSelectionBtn.addEventListener('click', () => {
+        this.toggleSelectionMode();
+        // Mettre à jour l'apparence du bouton
+        if (this.selectionMode) {
+          toggleSelectionBtn.classList.add('button--primary');
+          toggleSelectionBtn.classList.remove('button--ghost');
+        } else {
+          toggleSelectionBtn.classList.remove('button--primary');
+          toggleSelectionBtn.classList.add('button--ghost');
+        }
+      });
+    }
+
     // CORRECTION : Ne plus appliquer la vue ici car c'est déjà fait dans init()
 
     console.log('✅ Event listeners initialisés');
@@ -415,7 +439,11 @@ class ProductsModule {
         onEdit: (product) => this.editProduct(product),
         onDuplicate: (product) => this.duplicateProduct(product),
         onDelete: (product) => this.deleteProduct(product),
-        onHistory: (product) => this.showHistory(product)
+        onHistory: (product) => this.showHistory(product),
+        // Options de sélection multiple
+        selectable: this.selectionMode,
+        isSelected: (product) => this.selectedProducts.has(product.id),
+        onSelect: (product, selected) => this.handleProductSelect(product, selected)
       });
 
       console.log('✅ Grille créée:', grid);
@@ -1051,13 +1079,377 @@ class ProductsModule {
     this.renderProducts();
   }
 
+  /* ============================================================================
+     GESTION DE LA SÉLECTION MULTIPLE
+     ============================================================================ */
+
+  /**
+   * Initialise la barre d'actions en masse
+   */
+  initBulkActionsBar() {
+    // Créer la barre
+    this.bulkActionsBar = BulkActionsBar.render({
+      selectedCount: 0,
+      onDeselectAll: () => this.deselectAll(),
+      onChangeCategory: () => this.showChangeCategoryModal(),
+      onChangeSupplier: () => this.showChangeSupplierModal(),
+      onAdjustStock: () => this.showAdjustStockModal(),
+      onChangeState: () => this.showChangeStateModal(),
+      onDelete: () => this.deleteSelectedProducts(),
+      categories: [], // Sera rempli dynamiquement
+      suppliers: [],  // Sera rempli dynamiquement
+    });
+
+    // Ajouter au DOM
+    document.body.appendChild(this.bulkActionsBar);
+
+    console.log('✅ Barre d'actions en masse initialisée');
+  }
+
+  /**
+   * Toggle mode sélection
+   */
+  toggleSelectionMode() {
+    this.selectionMode = !this.selectionMode;
+
+    if (!this.selectionMode) {
+      // Désélectionner tout en sortant du mode sélection
+      this.deselectAll();
+    }
+
+    // Re-render les produits pour afficher/masquer les cases à cocher
+    this.renderProducts();
+
+    console.log('🔄 Mode sélection:', this.selectionMode ? 'activé' : 'désactivé');
+  }
+
+  /**
+   * Callback lors de la sélection d'un produit
+   */
+  handleProductSelect(product, selected) {
+    if (selected) {
+      this.selectedProducts.add(product.id);
+    } else {
+      this.selectedProducts.delete(product.id);
+    }
+
+    // Mettre à jour le compteur de la barre
+    if (this.bulkActionsBar) {
+      BulkActionsBar.updateCount(this.bulkActionsBar, this.selectedProducts.size);
+    }
+
+    console.log(`${selected ? '✅' : '❌'} Produit #${product.id} ${selected ? 'sélectionné' : 'désélectionné'} (${this.selectedProducts.size} total)`);
+  }
+
+  /**
+   * Désélectionne tous les produits
+   */
+  deselectAll() {
+    this.selectedProducts.clear();
+
+    // Mettre à jour toutes les cartes
+    document.querySelectorAll('.sp-product-card').forEach(card => {
+      const checkbox = card.querySelector('[data-action="select"]');
+      if (checkbox) {
+        checkbox.checked = false;
+        card.classList.remove('sp-product-card--selected');
+        card.removeAttribute('data-selected');
+      }
+    });
+
+    // Mettre à jour la barre
+    if (this.bulkActionsBar) {
+      BulkActionsBar.updateCount(this.bulkActionsBar, 0);
+    }
+
+    console.log('🔄 Tous les produits désélectionnés');
+  }
+
+  /**
+   * Sélectionne tous les produits visibles
+   */
+  selectAll() {
+    const visibleProducts = this.getVisibleProducts();
+
+    visibleProducts.forEach(product => {
+      this.selectedProducts.add(product.id);
+
+      // Mettre à jour la case à cocher
+      const card = document.querySelector(`[data-product-id="${product.id}"]`);
+      if (card) {
+        const checkbox = card.querySelector('[data-action="select"]');
+        if (checkbox) {
+          checkbox.checked = true;
+          card.classList.add('sp-product-card--selected');
+          card.setAttribute('data-selected', 'true');
+        }
+      }
+    });
+
+    // Mettre à jour la barre
+    if (this.bulkActionsBar) {
+      BulkActionsBar.updateCount(this.bulkActionsBar, this.selectedProducts.size);
+    }
+
+    console.log(`✅ ${visibleProducts.length} produits sélectionnés`);
+  }
+
+  /**
+   * Récupère les produits visibles (page courante)
+   */
+  getVisibleProducts() {
+    const start = (this.currentPage - 1) * this.perPage;
+    const end = start + this.perPage;
+    return this.filteredProducts.slice(start, end);
+  }
+
+  /**
+   * Récupère les produits sélectionnés
+   */
+  getSelectedProducts() {
+    return this.products.filter(p => this.selectedProducts.has(p.id));
+  }
+
+  /* ============================================================================
+     ACTIONS EN MASSE - MODALS
+     ============================================================================ */
+
+  /**
+   * Affiche le modal pour changer la catégorie
+   */
+  async showChangeCategoryModal() {
+    const selectedCount = this.selectedProducts.size;
+    const category = prompt(`Nouvelle catégorie pour ${selectedCount} produit(s) :`);
+
+    if (category === null) return; // Annulé
+
+    if (!category.trim()) {
+      alert('La catégorie ne peut pas être vide');
+      return;
+    }
+
+    await this.bulkUpdateCategory(category.trim());
+  }
+
+  /**
+   * Affiche le modal pour changer le fournisseur
+   */
+  async showChangeSupplierModal() {
+    const selectedCount = this.selectedProducts.size;
+    const supplier = prompt(`Nouveau fournisseur pour ${selectedCount} produit(s) :`);
+
+    if (supplier === null) return; // Annulé
+
+    await this.bulkUpdateSupplier(supplier.trim());
+  }
+
+  /**
+   * Affiche le modal pour ajuster le stock
+   */
+  async showAdjustStockModal() {
+    const selectedCount = this.selectedProducts.size;
+    const adjustment = prompt(`Ajustement du stock pour ${selectedCount} produit(s):\n\n+10 pour ajouter 10\n-5 pour soustraire 5\n=20 pour définir à 20`);
+
+    if (adjustment === null) return; // Annulé
+
+    if (!adjustment.match(/^[+\-=]\d+$/)) {
+      alert('Format invalide. Utilisez +10, -5 ou =20');
+      return;
+    }
+
+    await this.bulkAdjustStock(adjustment);
+  }
+
+  /**
+   * Affiche le modal pour changer l'état matériel
+   */
+  async showChangeStateModal() {
+    const selectedCount = this.selectedProducts.size;
+    const state = prompt(`État matériel pour ${selectedCount} produit(s):\n\n1. neuf\n2. reconditionné`);
+
+    if (state === null) return; // Annulé
+
+    const stateValue = state === '1' ? 'neuf' : state === '2' ? 'reconditionné' : state;
+
+    if (!['neuf', 'reconditionné'].includes(stateValue)) {
+      alert('État invalide. Choisissez "neuf" ou "reconditionné"');
+      return;
+    }
+
+    await this.bulkUpdateState(stateValue);
+  }
+
+  /**
+   * Supprime les produits sélectionnés
+   */
+  async deleteSelectedProducts() {
+    const selectedCount = this.selectedProducts.size;
+    const selectedProducts = this.getSelectedProducts();
+
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${selectedCount} produit(s) ?\n\nCette action est irréversible.`)) {
+      return;
+    }
+
+    console.log(`🗑️ Suppression de ${selectedCount} produits...`);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const selectedIds = Array.from(this.selectedProducts);
+
+      const result = await apiClient.bulkDeleteProducts(selectedIds);
+
+      // Afficher un message de succès
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `${selectedCount} produit(s) supprimé(s) avec succès`);
+      }
+
+      console.log('✅ Suppression en masse réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression en masse:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la suppression des produits');
+      }
+    }
+
+    // Désélectionner et recharger
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /* ============================================================================
+     ACTIONS EN MASSE - API CALLS
+     ============================================================================ */
+
+  /**
+   * Met à jour la catégorie en masse
+   */
+  async bulkUpdateCategory(category) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`🏷️ Mise à jour catégorie pour ${selectedIds.length} produits:`, category);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'category', category);
+
+      // Afficher un message de succès
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Catégorie mise à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour catégorie réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de la catégorie:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour de la catégorie');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour le fournisseur en masse
+   */
+  async bulkUpdateSupplier(supplier) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`📦 Mise à jour fournisseur pour ${selectedIds.length} produits:`, supplier);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'supplier', supplier);
+
+      // Afficher un message de succès
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Fournisseur mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour fournisseur réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du fournisseur:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour du fournisseur');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Ajuste le stock en masse
+   */
+  async bulkAdjustStock(adjustment) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`📊 Ajustement stock pour ${selectedIds.length} produits:`, adjustment);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'stock', adjustment);
+
+      // Afficher un message de succès
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `Stock ajusté pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Ajustement stock réussi:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'ajustement du stock:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de l\'ajustement du stock');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
+  /**
+   * Met à jour l'état matériel en masse
+   */
+  async bulkUpdateState(state) {
+    const selectedIds = Array.from(this.selectedProducts);
+
+    console.log(`🎨 Mise à jour état pour ${selectedIds.length} produits:`, state);
+
+    try {
+      const apiClient = await this.getApiClient();
+      const result = await apiClient.bulkUpdateProducts(selectedIds, 'state', state);
+
+      // Afficher un message de succès
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.success(result.message || `État mis à jour pour ${selectedIds.length} produit(s)`);
+      }
+
+      console.log('✅ Mise à jour état réussie:', result);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de l\'état:', error);
+      if (window.StockPilotNotification) {
+        window.StockPilotNotification.error('Erreur lors de la mise à jour de l\'état');
+      }
+    }
+
+    this.deselectAll();
+    await this.refresh();
+  }
+
   /**
    * Nettoie les ressources
    */
   destroy() {
     this.products = [];
     this.filteredProducts = [];
+    this.selectedProducts.clear();
     this.initialized = false;
+
+    // Retirer la barre d'actions
+    if (this.bulkActionsBar && this.bulkActionsBar.parentNode) {
+      this.bulkActionsBar.parentNode.removeChild(this.bulkActionsBar);
+    }
+
     console.log('🧹 Module Products nettoyé');
   }
 }

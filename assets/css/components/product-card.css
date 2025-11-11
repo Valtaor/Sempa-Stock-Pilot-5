@@ -47,6 +47,18 @@
   transform: translateY(-2px);
 }
 
+/* État sélectionné */
+.sp-product-card--selected {
+  box-shadow: 0 0 0 3px var(--sp-color-primary),
+              var(--sp-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.sp-product-card--selected:hover {
+  box-shadow: 0 0 0 3px var(--sp-color-primary),
+              var(--sp-shadow-xl);
+}
+
 /* ============================================================================
    IMAGE / PLACEHOLDER
    ============================================================================ */
@@ -89,6 +101,62 @@
   position: absolute;
   top: var(--sp-spacing-sm);
   right: var(--sp-spacing-sm);
+}
+
+/* Case à cocher (sélection) */
+.sp-product-card__checkbox {
+  position: absolute;
+  top: var(--sp-spacing-sm);
+  left: var(--sp-spacing-sm);
+  z-index: 10;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-product-card__checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sp-product-card__checkbox-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sp-radius-sm);
+  background: white;
+  border: 2px solid var(--sp-gray-300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--sp-transition-base);
+  box-shadow: var(--sp-shadow-sm);
+}
+
+.sp-product-card__checkbox-mark svg {
+  width: 16px;
+  height: 16px;
+  color: white;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all var(--sp-transition-base);
+}
+
+.sp-product-card__checkbox input[type="checkbox"]:checked + .sp-product-card__checkbox-mark {
+  background: var(--sp-color-primary);
+  border-color: var(--sp-color-primary);
+}
+
+.sp-product-card__checkbox input[type="checkbox"]:checked + .sp-product-card__checkbox-mark svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sp-product-card__checkbox:hover .sp-product-card__checkbox-mark {
+  border-color: var(--sp-color-primary);
+  transform: scale(1.1);
 }
 
 /* ============================================================================
