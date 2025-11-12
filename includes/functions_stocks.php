@@ -1074,14 +1074,11 @@ final class Sempa_Stocks_App
             $categories = $db->get_results($query, ARRAY_A) ?: [];
         }
 
-        if (Sempa_Stocks_DB::table_exists('fournisseurs_sempa')) {
-            $suppliers_table = Sempa_Stocks_DB::table('fournisseurs_sempa');
-            $order_column = Sempa_Stocks_DB::resolve_column('fournisseurs_sempa', 'nom', false);
-            $query = 'SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($suppliers_table);
-            if ($order_column) {
-                $query .= ' ORDER BY ' . Sempa_Stocks_DB::escape_identifier($order_column) . ' ASC';
-            }
-
+        // Récupérer les fournisseurs
+        $suppliers_table = 'fournisseurs';
+        $existing_suppliers_table = $db->get_col("SHOW TABLES LIKE '$suppliers_table'");
+        if (!empty($existing_suppliers_table)) {
+            $query = "SELECT * FROM `$suppliers_table` ORDER BY nom ASC";
             $suppliers = $db->get_results($query, ARRAY_A) ?: [];
         }
 
@@ -1166,19 +1163,22 @@ final class Sempa_Stocks_App
             wp_send_json_error(['message' => __('Impossible de se connecter à la base de données.', 'sempa')], 500);
         }
 
-        if (!Sempa_Stocks_DB::table_exists('fournisseurs_sempa')) {
+        $table = 'fournisseurs';
+
+        // Vérifier que la table existe
+        $existing_tables = $db->get_col("SHOW TABLES LIKE '$table'");
+        if (empty($existing_tables)) {
             wp_send_json_error(['message' => __('La table des fournisseurs est indisponible.', 'sempa')], 500);
         }
 
-        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
-        $payload = Sempa_Stocks_DB::normalize_columns('fournisseurs_sempa', [
+        $payload = [
             'nom' => $name,
-            'contact' => $contact,
+            'nom_contact' => $contact,
             'telephone' => $telephone,
             'email' => $email,
-        ]);
+        ];
 
-        if (empty($payload)) {
+        if (empty($payload['nom'])) {
             wp_send_json_error(['message' => __('Aucune donnée valide à enregistrer.', 'sempa')], 400);
         }
 
@@ -1188,9 +1188,8 @@ final class Sempa_Stocks_App
             wp_send_json_error(['message' => $db->last_error ?: __('Impossible d\'ajouter le fournisseur.', 'sempa')], 500);
         }
 
-        $id_column = Sempa_Stocks_DB::resolve_column('fournisseurs_sempa', 'id', false) ?: 'id';
         $supplier_data = $payload;
-        $supplier_data[$id_column] = (int) $db->insert_id;
+        $supplier_data['id'] = (int) $db->insert_id;
 
         wp_send_json_success([
             'supplier' => self::format_supplier($supplier_data),
@@ -1207,11 +1206,14 @@ final class Sempa_Stocks_App
 
         $db = Sempa_Stocks_DB::instance();
 
-        if (!Sempa_Stocks_DB::table_exists('fournisseurs_sempa')) {
+        // La table s'appelle 'fournisseurs' (pas de suffixe _sempa)
+        $table = 'fournisseurs';
+
+        // Vérifier que la table existe
+        $existing_tables = $db->get_col("SHOW TABLES LIKE '$table'");
+        if (empty($existing_tables)) {
             wp_send_json_error(['message' => __('La table des fournisseurs est indisponible.', 'sempa')], 500);
         }
-
-        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
         $search = isset($_GET['search']) ? sanitize_text_field($_GET['search']) : '';
 
         $query = "SELECT * FROM " . Sempa_Stocks_DB::escape_identifier($table);
@@ -1255,7 +1257,7 @@ final class Sempa_Stocks_App
         }
 
         $db = Sempa_Stocks_DB::instance();
-        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
+        $table = 'fournisseurs';
 
         $deleted = $db->delete($table, ['id' => $id], ['%d']);
 
@@ -1289,10 +1291,10 @@ final class Sempa_Stocks_App
         }
 
         $db = Sempa_Stocks_DB::instance();
-        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
+        $table = 'fournisseurs';
 
         $supplier = $db->get_row($db->prepare(
-            "SELECT * FROM " . Sempa_Stocks_DB::escape_identifier($table) . " WHERE id = %d",
+            "SELECT * FROM `$table` WHERE id = %d",
             $supplier_id
         ), ARRAY_A);
 
@@ -1785,11 +1787,20 @@ final class Sempa_Stocks_App
     private static function format_supplier(array $supplier)
     {
         return [
-            'id' => (int) Sempa_Stocks_DB::value($supplier, 'fournisseurs_sempa', 'id', 0),
-            'nom' => (string) Sempa_Stocks_DB::value($supplier, 'fournisseurs_sempa', 'nom', ''),
-            'contact' => (string) Sempa_Stocks_DB::value($supplier, 'fournisseurs_sempa', 'contact', ''),
-            'telephone' => (string) Sempa_Stocks_DB::value($supplier, 'fournisseurs_sempa', 'telephone', ''),
-            'email' => (string) Sempa_Stocks_DB::value($supplier, 'fournisseurs_sempa', 'email', ''),
+            'id' => (int) ($supplier['id'] ?? 0),
+            'nom' => (string) ($supplier['nom'] ?? ''),
+            'nom_contact' => (string) ($supplier['nom_contact'] ?? ''),
+            'telephone' => (string) ($supplier['telephone'] ?? ''),
+            'email' => (string) ($supplier['email'] ?? ''),
+            'adresse' => (string) ($supplier['adresse'] ?? ''),
+            'code_postal' => (string) ($supplier['code_postal'] ?? ''),
+            'ville' => (string) ($supplier['ville'] ?? ''),
+            'pays' => (string) ($supplier['pays'] ?? 'France'),
+            'site_web' => (string) ($supplier['site_web'] ?? ''),
+            'siret' => (string) ($supplier['siret'] ?? ''),
+            'conditions_paiement' => (string) ($supplier['conditions_paiement'] ?? ''),
+            'delai_livraison' => (string) ($supplier['delai_livraison'] ?? ''),
+            'notes' => (string) ($supplier['notes'] ?? ''),
         ];
     }
 

@@ -9,8 +9,9 @@ class AgendaModule {
     this.alerts = [];
     this.currentFilter = 'active';
     this.currentTypeFilter = '';
+    this.initialized = false;
 
-    console.log('📅 AgendaModule initialisé');
+    console.log('📅 AgendaModule créé');
   }
 
   /**
@@ -23,6 +24,7 @@ class AgendaModule {
     await this.loadAlerts();
     this.checkLowStockProducts();
 
+    this.initialized = true;
     console.log('✅ Module agenda initialisé');
   }
 
@@ -543,10 +545,8 @@ class AgendaModule {
   }
 }
 
-// Instance globale
-let agendaModule = null;
-
-// Initialisation automatique
-document.addEventListener('DOMContentLoaded', () => {
-  agendaModule = new AgendaModule();
-});
+// Créer et exposer l'instance globale
+if (typeof window !== 'undefined') {
+  window.agendaModule = new AgendaModule();
+  console.log('✅ Module Agenda créé et exposé globalement');
+}
