@@ -1967,17 +1967,24 @@ final class Sempa_Login_Redirect
                     continue;
                 }
 
-                // Préparer les données
+                // Préparer les données (support de plusieurs formats de colonnes)
                 $data = [
                     'reference' => sanitize_text_field($product['reference']),
                     'designation' => sanitize_text_field($product['designation']),
                     'stock_actuel' => isset($product['stock_actuel']) ? intval($product['stock_actuel']) : 0,
-                    'stock_min' => isset($product['stock_min']) ? intval($product['stock_min']) : 0,
-                    'prix_unitaire' => isset($product['prix_unitaire']) ? floatval($product['prix_unitaire']) : 0,
+                    // Support stock_min et stock_minimum
+                    'stock_min' => isset($product['stock_min']) ? intval($product['stock_min']) :
+                                   (isset($product['stock_minimum']) ? intval($product['stock_minimum']) : 0),
+                    // Support prix_unitaire, prix_achat et prix_vente
+                    'prix_unitaire' => isset($product['prix_unitaire']) ? floatval($product['prix_unitaire']) :
+                                       (isset($product['prix_achat']) ? floatval($product['prix_achat']) :
+                                       (isset($product['prix_vente']) ? floatval($product['prix_vente']) : 0)),
                     'categorie' => isset($product['categorie']) ? sanitize_text_field($product['categorie']) : '',
                     'fournisseur' => isset($product['fournisseur']) ? sanitize_text_field($product['fournisseur']) : '',
                     'emplacement' => isset($product['emplacement']) ? sanitize_text_field($product['emplacement']) : '',
-                    'commentaire' => isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) : '',
+                    // Support commentaire et notes
+                    'commentaire' => isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) :
+                                     (isset($product['notes']) ? sanitize_textarea_field($product['notes']) : ''),
                     'date_modification' => current_time('mysql')
                 ];
 
