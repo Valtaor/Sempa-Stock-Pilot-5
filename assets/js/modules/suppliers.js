@@ -10,6 +10,7 @@ class SuppliersModule {
     this.currentSupplier = null;
     this.searchTerm = '';
     this.initialized = false;
+    this.listenersAttached = false;
 
     console.log('📦 SuppliersModule créé');
   }
@@ -52,6 +53,14 @@ class SuppliersModule {
    * Attache les event listeners
    */
   attachEventListeners() {
+    // Empêcher l'attachement multiple des listeners
+    if (this.listenersAttached) {
+      console.log('⏭️ Event listeners déjà attachés, skip');
+      return;
+    }
+
+    console.log('🔗 Attachement event listeners fournisseurs...');
+
     // Bouton ajouter fournisseur
     const addBtn = document.getElementById('btn-add-supplier');
     if (addBtn) {
@@ -72,6 +81,9 @@ class SuppliersModule {
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.loadSuppliers());
     }
+
+    this.listenersAttached = true;
+    console.log('✅ Event listeners fournisseurs attachés');
   }
 
   /**
