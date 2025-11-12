@@ -102,24 +102,30 @@ class StockPilotApp {
     navLinks.forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         const view = link.getAttribute('data-view');
+        console.log(`👆 Click intercepté pour: ${view}`);
         this.switchView(view);
+        return false;
       });
     });
 
+    // DÉSACTIVÉ TEMPORAIREMENT POUR DEBUGGING
     // Écouter les changements d'ancre (fallback pour support ancres HTML natives)
-    window.addEventListener('hashchange', () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#view-')) {
-        const viewName = hash.replace('#view-', '');
-        this.switchView(viewName);
-      }
-    });
+    // window.addEventListener('hashchange', () => {
+    //   const hash = window.location.hash;
+    //   if (hash.startsWith('#view-')) {
+    //     const viewName = hash.replace('#view-', '');
+    //     this.switchView(viewName);
+    //   }
+    // });
 
     // Gérer l'ancre initiale dans l'URL
     if (window.location.hash.startsWith('#view-')) {
       const initialView = window.location.hash.replace('#view-', '');
       if (initialView) {
+        console.log(`🔗 Hash initial détecté: ${initialView}`);
         this.switchView(initialView);
       }
     }
