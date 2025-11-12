@@ -124,7 +124,7 @@ class AgendaModule {
         window.Notification.show('Erreur lors du chargement des alertes', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
@@ -490,7 +490,7 @@ class AgendaModule {
         window.Notification.show('Erreur lors de la mise à jour', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 

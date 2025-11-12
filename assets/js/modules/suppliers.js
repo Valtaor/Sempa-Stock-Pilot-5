@@ -106,7 +106,7 @@ class SuppliersModule {
         window.Notification.show('Erreur lors du chargement des fournisseurs', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
@@ -363,7 +363,7 @@ class SuppliersModule {
         window.Notification.show('Erreur lors de la sauvegarde', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
@@ -404,7 +404,7 @@ class SuppliersModule {
         window.Notification.show('Erreur lors de la suppression', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
@@ -499,7 +499,7 @@ Cordialement,"></textarea>
         window.Notification.show('Erreur lors de l\'envoi de l\'email', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
