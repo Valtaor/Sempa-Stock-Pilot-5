@@ -15,6 +15,27 @@ class SuppliersModule {
   }
 
   /**
+   * Récupère le client API (attend l'initialisation si nécessaire)
+   */
+  async getApiClient() {
+    if (window.api) {
+      return window.api;
+    }
+
+    if (typeof window.waitForStockPilotAPI === 'function') {
+      const api = await window.waitForStockPilotAPI();
+      return api;
+    }
+
+    if (window.stockpilotAPIReady && typeof window.stockpilotAPIReady.then === 'function') {
+      const api = await window.stockpilotAPIReady;
+      return api;
+    }
+
+    throw new Error('API StockPilot non initialisée');
+  }
+
+  /**
    * Initialise le module
    */
   async init() {
@@ -58,9 +79,10 @@ class SuppliersModule {
    */
   async loadSuppliers() {
     try {
-      Loader.showFullscreen();
+      if (window.Loader) window.Loader.showFullscreen();
 
-      const data = await API.getSuppliers();
+      const apiClient = await this.getApiClient();
+      const data = await apiClient.getSuppliers();
       this.suppliers = data.suppliers || [];
 
       this.renderSuppliers();
@@ -68,9 +90,11 @@ class SuppliersModule {
       console.log('✅ Fournisseurs chargés:', this.suppliers.length);
     } catch (error) {
       console.error('❌ Erreur chargement fournisseurs:', error);
-      Notification.show('Erreur lors du chargement des fournisseurs', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors du chargement des fournisseurs', 'error');
+      }
     } finally {
-      Loader.hide();
+      if (window.Loader) window.Loader.hide();
     }
   }
 
@@ -299,28 +323,35 @@ class SuppliersModule {
     const data = Object.fromEntries(formData.entries());
 
     if (!data.nom) {
-      Notification.show('Le nom du fournisseur est obligatoire', 'error');
+      if (window.Notification) {
+        window.Notification.show('Le nom du fournisseur est obligatoire', 'error');
+      }
       return;
     }
 
     try {
-      Loader.showFullscreen();
+      if (window.Loader) window.Loader.showFullscreen();
 
       if (this.currentSupplier) {
         data.id = this.currentSupplier.id;
       }
 
-      await API.saveSupplier(data);
+      const apiClient = await this.getApiClient();
+      await apiClient.saveSupplier(data);
 
-      Notification.show(`Fournisseur ${this.currentSupplier ? 'modifié' : 'créé'} avec succès`, 'success');
+      if (window.Notification) {
+        window.Notification.show(`Fournisseur ${this.currentSupplier ? 'modifié' : 'créé'} avec succès`, 'success');
+      }
 
       this.closeModal();
       await this.loadSuppliers();
     } catch (error) {
       console.error('❌ Erreur sauvegarde fournisseur:', error);
-      Notification.show('Erreur lors de la sauvegarde', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors de la sauvegarde', 'error');
+      }
     } finally {
-      Loader.hide();
+      if (window.Loader) window.Loader.hide();
     }
   }
 
@@ -346,17 +377,22 @@ class SuppliersModule {
     }
 
     try {
-      Loader.showFullscreen();
+      if (window.Loader) window.Loader.showFullscreen();
 
-      await API.deleteSupplier(id);
+      const apiClient = await this.getApiClient();
+      await apiClient.deleteSupplier(id);
 
-      Notification.show('Fournisseur supprimé avec succès', 'success');
+      if (window.Notification) {
+        window.Notification.show('Fournisseur supprimé avec succès', 'success');
+      }
       await this.loadSuppliers();
     } catch (error) {
       console.error('❌ Erreur suppression fournisseur:', error);
-      Notification.show('Erreur lors de la suppression', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors de la suppression', 'error');
+      }
     } finally {
-      Loader.hide();
+      if (window.Loader) window.Loader.hide();
     }
   }
 
@@ -366,7 +402,9 @@ class SuppliersModule {
   showEmailForm(supplierId) {
     const supplier = this.suppliers.find(s => s.id === supplierId);
     if (!supplier || !supplier.email) {
-      Notification.show('Ce fournisseur n\'a pas d\'email', 'error');
+      if (window.Notification) {
+        window.Notification.show('Ce fournisseur n\'a pas d\'email', 'error');
+      }
       return;
     }
 
@@ -427,22 +465,29 @@ Cordialement,"></textarea>
     const message = document.getElementById('email-message')?.value;
 
     if (!subject || !message) {
-      Notification.show('Le sujet et le message sont obligatoires', 'error');
+      if (window.Notification) {
+        window.Notification.show('Le sujet et le message sont obligatoires', 'error');
+      }
       return;
     }
 
     try {
-      Loader.showFullscreen();
+      if (window.Loader) window.Loader.showFullscreen();
 
-      await API.sendSupplierEmail(supplierId, subject, message);
+      const apiClient = await this.getApiClient();
+      await apiClient.sendSupplierEmail(supplierId, subject, message);
 
-      Notification.show('Email envoyé avec succès', 'success');
+      if (window.Notification) {
+        window.Notification.show('Email envoyé avec succès', 'success');
+      }
       this.closeModal();
     } catch (error) {
       console.error('❌ Erreur envoi email:', error);
-      Notification.show('Erreur lors de l\'envoi de l\'email', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors de l\'envoi de l\'email', 'error');
+      }
     } finally {
-      Loader.hide();
+      if (window.Loader) window.Loader.hide();
     }
   }
 

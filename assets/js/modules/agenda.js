@@ -15,6 +15,27 @@ class AgendaModule {
   }
 
   /**
+   * Récupère le client API (attend l'initialisation si nécessaire)
+   */
+  async getApiClient() {
+    if (window.api) {
+      return window.api;
+    }
+
+    if (typeof window.waitForStockPilotAPI === 'function') {
+      const api = await window.waitForStockPilotAPI();
+      return api;
+    }
+
+    if (window.stockpilotAPIReady && typeof window.stockpilotAPIReady.then === 'function') {
+      const api = await window.stockpilotAPIReady;
+      return api;
+    }
+
+    throw new Error('API StockPilot non initialisée');
+  }
+
+  /**
    * Initialise le module
    */
   async init() {
@@ -75,9 +96,10 @@ class AgendaModule {
    */
   async loadAlerts() {
     try {
-      Loader.showFullscreen();
+      if (window.Loader) window.Loader.showFullscreen();
 
-      const data = await API.getStockAlerts(this.currentFilter, this.currentTypeFilter);
+      const apiClient = await this.getApiClient();
+      const data = await apiClient.getStockAlerts(this.currentFilter, this.currentTypeFilter);
       this.alerts = data.alerts || [];
 
       this.renderAlerts();
@@ -86,9 +108,11 @@ class AgendaModule {
       console.log('✅ Alertes chargées:', this.alerts.length);
     } catch (error) {
       console.error('❌ Erreur chargement alertes:', error);
-      Notification.show('Erreur lors du chargement des alertes', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors du chargement des alertes', 'error');
+      }
     } finally {
-      Loader.hide();
+      if (window.Loader) window.Loader.hide();
     }
   }
 
@@ -97,7 +121,8 @@ class AgendaModule {
    */
   async checkLowStockProducts() {
     try {
-      const productsData = await API.getProducts();
+      const apiClient = await this.getApiClient();
+      const productsData = await apiClient.getProducts();
       const products = productsData.products || [];
 
       for (const product of products) {
@@ -135,7 +160,8 @@ class AgendaModule {
     if (existingAlert) return;
 
     try {
-      await API.createStockAlert({
+      const apiClient = await this.getApiClient();
+      await apiClient.createStockAlert({
         product_id: productId,
         alert_type: alertType
       });
@@ -336,12 +362,17 @@ class AgendaModule {
    */
   async acknowledgeAlert(alertId) {
     try {
-      await API.updateStockAlert(alertId, { status: 'acknowledged' });
-      Notification.show('Alerte prise en charge', 'success');
+      const apiClient = await this.getApiClient();
+      await apiClient.updateStockAlert(alertId, { status: 'acknowledged' });
+      if (window.Notification) {
+        window.Notification.show('Alerte prise en charge', 'success');
+      }
       await this.loadAlerts();
     } catch (error) {
       console.error('❌ Erreur:', error);
-      Notification.show('Erreur lors de la mise à jour', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors de la mise à jour', 'error');
+      }
     }
   }
 
@@ -350,12 +381,17 @@ class AgendaModule {
    */
   async resolveAlert(alertId) {
     try {
-      await API.updateStockAlert(alertId, { status: 'resolved' });
-      Notification.show('Alerte résolue', 'success');
+      const apiClient = await this.getApiClient();
+      await apiClient.updateStockAlert(alertId, { status: 'resolved' });
+      if (window.Notification) {
+        window.Notification.show('Alerte résolue', 'success');
+      }
       await this.loadAlerts();
     } catch (error) {
       console.error('❌ Erreur:', error);
-      Notification.show('Erreur lors de la mise à jour', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors de la mise à jour', 'error');
+      }
     }
   }
 
@@ -422,22 +458,27 @@ class AgendaModule {
     const notes = document.getElementById('alert-notes')?.value;
 
     try {
-      Loader.showFullscreen();
+      if (window.Loader) window.Loader.showFullscreen();
 
-      await API.updateStockAlert(alertId, {
+      const apiClient = await this.getApiClient();
+      await apiClient.updateStockAlert(alertId, {
         reorder_date: reorderDate || null,
         quantity_needed: quantity || null,
         notes: notes || null
       });
 
-      Notification.show('Alerte mise à jour', 'success');
+      if (window.Notification) {
+        window.Notification.show('Alerte mise à jour', 'success');
+      }
       this.closeModal();
       await this.loadAlerts();
     } catch (error) {
       console.error('❌ Erreur:', error);
-      Notification.show('Erreur lors de la mise à jour', 'error');
+      if (window.Notification) {
+        window.Notification.show('Erreur lors de la mise à jour', 'error');
+      }
     } finally {
-      Loader.hide();
+      if (window.Loader) window.Loader.hide();
     }
   }
 
