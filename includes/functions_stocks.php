@@ -1971,14 +1971,13 @@ final class Sempa_Login_Redirect
                 $data = [
                     'reference' => sanitize_text_field($product['reference']),
                     'designation' => sanitize_text_field($product['designation']),
-                    'stock_actuel' => isset($product['stock_actuel']) ? intval($product['stock_actuel']) : 0,
+                    'stock_actuel' => isset($product['stock_actuel']) && $product['stock_actuel'] !== '' ? intval($product['stock_actuel']) : 0,
                     // Support stock_min et stock_minimum
-                    'stock_min' => isset($product['stock_min']) ? intval($product['stock_min']) :
-                                   (isset($product['stock_minimum']) ? intval($product['stock_minimum']) : 0),
-                    // Support prix_unitaire, prix_achat et prix_vente
-                    'prix_unitaire' => isset($product['prix_unitaire']) ? floatval($product['prix_unitaire']) :
-                                       (isset($product['prix_achat']) ? floatval($product['prix_achat']) :
-                                       (isset($product['prix_vente']) ? floatval($product['prix_vente']) : 0)),
+                    'stock_min' => isset($product['stock_min']) && $product['stock_min'] !== '' ? intval($product['stock_min']) :
+                                   (isset($product['stock_minimum']) && $product['stock_minimum'] !== '' ? intval($product['stock_minimum']) : 0),
+                    // Support prix_unitaire, prix_achat et prix_vente (essayer tous)
+                    'prix_unitaire' => isset($product['prix_unitaire']) && $product['prix_unitaire'] !== '' ? floatval($product['prix_unitaire']) :
+                                       (isset($product['prix_achat']) && $product['prix_achat'] !== '' ? floatval($product['prix_achat']) : 0),
                     'categorie' => isset($product['categorie']) ? sanitize_text_field($product['categorie']) : '',
                     'fournisseur' => isset($product['fournisseur']) ? sanitize_text_field($product['fournisseur']) : '',
                     'emplacement' => isset($product['emplacement']) ? sanitize_text_field($product['emplacement']) : '',
@@ -1987,6 +1986,18 @@ final class Sempa_Login_Redirect
                                      (isset($product['notes']) ? sanitize_textarea_field($product['notes']) : ''),
                     'date_modification' => current_time('mysql')
                 ];
+
+                // Ajouter les colonnes supplémentaires si elles existent dans le CSV
+                // (elles seront ignorées par wpdb si elles n'existent pas dans la table)
+                if (isset($product['etat_materiel']) && $product['etat_materiel'] !== '') {
+                    $data['etat_materiel'] = sanitize_text_field($product['etat_materiel']);
+                }
+                if (isset($product['prix_vente']) && $product['prix_vente'] !== '') {
+                    $data['prix_vente'] = floatval($product['prix_vente']);
+                }
+                if (isset($product['stock_maximum']) && $product['stock_maximum'] !== '') {
+                    $data['stock_maximum'] = intval($product['stock_maximum']);
+                }
 
                 // Vérifier si le produit existe déjà
                 $existing = $db->get_row(
