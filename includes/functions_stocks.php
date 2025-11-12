@@ -32,6 +32,12 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_reference_data', [__CLASS__, 'ajax_reference_data']);
         add_action('wp_ajax_sempa_stocks_save_category', [__CLASS__, 'ajax_save_category']);
         add_action('wp_ajax_sempa_stocks_save_supplier', [__CLASS__, 'ajax_save_supplier']);
+        add_action('wp_ajax_sempa_stocks_suppliers', [__CLASS__, 'ajax_suppliers']);
+        add_action('wp_ajax_sempa_stocks_delete_supplier', [__CLASS__, 'ajax_delete_supplier']);
+        add_action('wp_ajax_sempa_stocks_send_supplier_email', [__CLASS__, 'ajax_send_supplier_email']);
+        add_action('wp_ajax_sempa_stocks_stock_alerts', [__CLASS__, 'ajax_stock_alerts']);
+        add_action('wp_ajax_sempa_stocks_create_alert', [__CLASS__, 'ajax_create_alert']);
+        add_action('wp_ajax_sempa_stocks_update_alert', [__CLASS__, 'ajax_update_alert']);
         add_action('wp_ajax_sempa_stocks_get_history', [__CLASS__, 'ajax_get_history']);
         add_action('wp_ajax_sempa_stocks_test_audit', [__CLASS__, 'ajax_test_audit']); // Diagnostic endpoint
         add_action('init', [__CLASS__, 'register_export_route']);
@@ -1189,6 +1195,294 @@ final class Sempa_Stocks_App
         wp_send_json_success([
             'supplier' => self::format_supplier($supplier_data),
         ]);
+    }
+
+    /**
+     * AJAX: Récupérer la liste des fournisseurs
+     */
+    public static function ajax_suppliers()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        $db = Sempa_Stocks_DB::instance();
+
+        if (!Sempa_Stocks_DB::table_exists('fournisseurs_sempa')) {
+            wp_send_json_error(['message' => __('La table des fournisseurs est indisponible.', 'sempa')], 500);
+        }
+
+        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
+        $search = isset($_GET['search']) ? sanitize_text_field($_GET['search']) : '';
+
+        $query = "SELECT * FROM " . Sempa_Stocks_DB::escape_identifier($table);
+
+        if (!empty($search)) {
+            $query .= $db->prepare(" WHERE nom LIKE %s OR email LIKE %s OR ville LIKE %s",
+                '%' . $db->esc_like($search) . '%',
+                '%' . $db->esc_like($search) . '%',
+                '%' . $db->esc_like($search) . '%'
+            );
+        }
+
+        $query .= " ORDER BY nom ASC";
+
+        $suppliers = $db->get_results($query, ARRAY_A);
+
+        if ($suppliers === null) {
+            wp_send_json_error(['message' => __('Erreur lors de la récupération des fournisseurs.', 'sempa')], 500);
+        }
+
+        $formatted_suppliers = array_map([__CLASS__, 'format_supplier'], $suppliers);
+
+        wp_send_json_success([
+            'suppliers' => $formatted_suppliers,
+            'total' => count($formatted_suppliers)
+        ]);
+    }
+
+    /**
+     * AJAX: Supprimer un fournisseur
+     */
+    public static function ajax_delete_supplier()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        $id = absint($_POST['id'] ?? 0);
+
+        if ($id <= 0) {
+            wp_send_json_error(['message' => __('ID fournisseur invalide.', 'sempa')], 400);
+        }
+
+        $db = Sempa_Stocks_DB::instance();
+        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
+
+        $deleted = $db->delete($table, ['id' => $id], ['%d']);
+
+        if ($deleted === false) {
+            wp_send_json_error(['message' => __('Impossible de supprimer le fournisseur.', 'sempa')], 500);
+        }
+
+        wp_send_json_success(['message' => __('Fournisseur supprimé avec succès.', 'sempa')]);
+    }
+
+    /**
+     * AJAX: Envoyer un email à un fournisseur
+     */
+    public static function ajax_send_supplier_email()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        $data = self::read_request_body();
+        $supplier_id = absint($data['supplier_id'] ?? 0);
+        $subject = sanitize_text_field($data['subject'] ?? '');
+        $message = wp_kses_post($data['message'] ?? '');
+        $product_ids = isset($data['product_ids']) ? array_map('absint', (array)$data['product_ids']) : [];
+
+        if ($supplier_id <= 0) {
+            wp_send_json_error(['message' => __('ID fournisseur invalide.', 'sempa')], 400);
+        }
+
+        if (empty($subject) || empty($message)) {
+            wp_send_json_error(['message' => __('Le sujet et le message sont obligatoires.', 'sempa')], 400);
+        }
+
+        $db = Sempa_Stocks_DB::instance();
+        $table = Sempa_Stocks_DB::table('fournisseurs_sempa');
+
+        $supplier = $db->get_row($db->prepare(
+            "SELECT * FROM " . Sempa_Stocks_DB::escape_identifier($table) . " WHERE id = %d",
+            $supplier_id
+        ), ARRAY_A);
+
+        if (!$supplier || empty($supplier['email'])) {
+            wp_send_json_error(['message' => __('Fournisseur non trouvé ou email manquant.', 'sempa')], 404);
+        }
+
+        // Préparer l'email
+        $to = $supplier['email'];
+        $headers = ['Content-Type: text/html; charset=UTF-8'];
+
+        // Ajouter les détails des produits si fournis
+        if (!empty($product_ids)) {
+            $products_table = Sempa_Stocks_DB::table('stocks_sempa');
+            $placeholders = implode(',', array_fill(0, count($product_ids), '%d'));
+            $products = $db->get_results($db->prepare(
+                "SELECT reference, designation, price_achat FROM " .
+                Sempa_Stocks_DB::escape_identifier($products_table) .
+                " WHERE id IN ($placeholders)",
+                ...$product_ids
+            ), ARRAY_A);
+
+            if ($products) {
+                $message .= "\n\n<h3>Produits concernés:</h3><ul>";
+                foreach ($products as $product) {
+                    $message .= "<li><strong>" . esc_html($product['reference']) . "</strong> - " .
+                               esc_html($product['designation']) . " - " .
+                               number_format($product['price_achat'], 2) . " €</li>";
+                }
+                $message .= "</ul>";
+            }
+        }
+
+        // Envoyer l'email
+        $sent = wp_mail($to, $subject, $message, $headers);
+
+        if (!$sent) {
+            wp_send_json_error(['message' => __('Erreur lors de l\'envoi de l\'email.', 'sempa')], 500);
+        }
+
+        // Logger l'action
+        if (class_exists('Sempa_Audit_Logger')) {
+            Sempa_Audit_Logger::log(
+                'supplier',
+                $supplier_id,
+                'email_sent',
+                null,
+                ['subject' => $subject, 'products_count' => count($product_ids)],
+                'Email envoyé au fournisseur: ' . $supplier['nom']
+            );
+        }
+
+        wp_send_json_success(['message' => __('Email envoyé avec succès.', 'sempa')]);
+    }
+
+    /**
+     * AJAX: Récupérer les alertes de stock
+     */
+    public static function ajax_stock_alerts()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        $status = isset($_GET['status']) ? sanitize_key($_GET['status']) : 'active';
+        $type = isset($_GET['type']) ? sanitize_key($_GET['type']) : '';
+
+        global $wpdb;
+        $alerts_table = 'sempa_stock_alerts';
+        $products_table = Sempa_Stocks_DB::table('stocks_sempa');
+
+        $query = "SELECT a.*, p.reference, p.designation, p.stock_actuel, p.stock_min, p.supplier
+                  FROM $alerts_table a
+                  LEFT JOIN " . Sempa_Stocks_DB::escape_identifier($products_table) . " p ON a.product_id = p.id
+                  WHERE a.status = %s";
+
+        $params = [$status];
+
+        if (!empty($type)) {
+            $query .= " AND a.alert_type = %s";
+            $params[] = $type;
+        }
+
+        $query .= " ORDER BY a.alert_date DESC";
+
+        $alerts = $wpdb->get_results($wpdb->prepare($query, ...$params), ARRAY_A);
+
+        if ($alerts === null) {
+            wp_send_json_error(['message' => __('Erreur lors de la récupération des alertes.', 'sempa')], 500);
+        }
+
+        wp_send_json_success([
+            'alerts' => $alerts,
+            'total' => count($alerts)
+        ]);
+    }
+
+    /**
+     * AJAX: Créer une alerte de stock
+     */
+    public static function ajax_create_alert()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        $data = self::read_request_body();
+        $product_id = absint($data['product_id'] ?? 0);
+        $alert_type = sanitize_key($data['alert_type'] ?? 'low_stock');
+        $reorder_date = isset($data['reorder_date']) ? sanitize_text_field($data['reorder_date']) : null;
+        $quantity_needed = isset($data['quantity_needed']) ? absint($data['quantity_needed']) : null;
+        $supplier_id = isset($data['supplier_id']) ? absint($data['supplier_id']) : null;
+        $notes = isset($data['notes']) ? sanitize_textarea_field($data['notes']) : null;
+
+        if ($product_id <= 0) {
+            wp_send_json_error(['message' => __('ID produit invalide.', 'sempa')], 400);
+        }
+
+        global $wpdb;
+        $inserted = $wpdb->insert('sempa_stock_alerts', [
+            'product_id' => $product_id,
+            'alert_type' => $alert_type,
+            'status' => 'active',
+            'reorder_date' => $reorder_date,
+            'quantity_needed' => $quantity_needed,
+            'supplier_id' => $supplier_id,
+            'notes' => $notes
+        ], ['%d', '%s', '%s', '%s', '%d', '%d', '%s']);
+
+        if ($inserted === false) {
+            wp_send_json_error(['message' => __('Impossible de créer l\'alerte.', 'sempa')], 500);
+        }
+
+        wp_send_json_success([
+            'alert_id' => $wpdb->insert_id,
+            'message' => __('Alerte créée avec succès.', 'sempa')
+        ]);
+    }
+
+    /**
+     * AJAX: Mettre à jour une alerte de stock
+     */
+    public static function ajax_update_alert()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        $data = self::read_request_body();
+        $alert_id = absint($data['id'] ?? 0);
+        $status = sanitize_key($data['status'] ?? '');
+        $notes = isset($data['notes']) ? sanitize_textarea_field($data['notes']) : null;
+
+        if ($alert_id <= 0) {
+            wp_send_json_error(['message' => __('ID alerte invalide.', 'sempa')], 400);
+        }
+
+        $current_user_id = get_current_user_id();
+        $update_data = [];
+        $formats = [];
+
+        if (!empty($status)) {
+            $update_data['status'] = $status;
+            $formats[] = '%s';
+
+            if ($status === 'acknowledged') {
+                $update_data['acknowledged_by'] = $current_user_id;
+                $update_data['acknowledged_at'] = current_time('mysql');
+                $formats[] = '%d';
+                $formats[] = '%s';
+            } elseif ($status === 'resolved') {
+                $update_data['resolved_at'] = current_time('mysql');
+                $formats[] = '%s';
+            }
+        }
+
+        if ($notes !== null) {
+            $update_data['notes'] = $notes;
+            $formats[] = '%s';
+        }
+
+        if (empty($update_data)) {
+            wp_send_json_error(['message' => __('Aucune donnée à mettre à jour.', 'sempa')], 400);
+        }
+
+        global $wpdb;
+        $updated = $wpdb->update('sempa_stock_alerts', $update_data, ['id' => $alert_id], $formats, ['%d']);
+
+        if ($updated === false) {
+            wp_send_json_error(['message' => __('Impossible de mettre à jour l\'alerte.', 'sempa')], 500);
+        }
+
+        wp_send_json_success(['message' => __('Alerte mise à jour avec succès.', 'sempa')]);
     }
 
     public static function ajax_get_history()

@@ -252,6 +252,28 @@ class StockPilotApp {
           await window.movementsModule.refresh();
         }
         break;
+      case 'suppliers':
+        // Initialiser les fournisseurs si pas déjà fait
+        if (window.suppliersModule && !window.suppliersModule.initialized) {
+          console.log('🚀 Initialisation module fournisseurs...');
+          await window.suppliersModule.init();
+          window.suppliersModule.initialized = true;
+        } else if (window.suppliersModule) {
+          console.log('✅ Vue fournisseurs affichée - rafraîchissement...');
+          await window.suppliersModule.loadSuppliers();
+        }
+        break;
+      case 'agenda':
+        // Initialiser l'agenda si pas déjà fait
+        if (window.agendaModule && !window.agendaModule.initialized) {
+          console.log('🚀 Initialisation module agenda...');
+          await window.agendaModule.init();
+          window.agendaModule.initialized = true;
+        } else if (window.agendaModule) {
+          console.log('✅ Vue agenda affichée - rafraîchissement...');
+          await window.agendaModule.loadAlerts();
+        }
+        break;
       case 'reports':
         console.log('✅ Vue rapports affichée');
         break;
