@@ -56,9 +56,8 @@ class ProductCard {
     }
 
     // Image ou placeholder
-    const imageUrl = product.document_url && product.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-      ? product.document_url
-      : null;
+    const imageUrl = product.image_url ||
+                     (product.document_url && product.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? product.document_url : null);
 
     const imageHTML = imageUrl
       ? `<img src="${this.escapeHtml(imageUrl)}" alt="${this.escapeHtml(product.designation)}" loading="lazy" />`

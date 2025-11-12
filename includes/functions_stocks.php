@@ -368,6 +368,17 @@ final class Sempa_Stocks_App
             $payload['document_pdf'] = $upload_path;
         }
 
+        // Gérer l'upload de l'image du produit
+        $image_url = self::maybe_handle_image_upload($id);
+        if ($image_url) {
+            $payload['image_url'] = $image_url;
+        }
+
+        // Gérer la suppression de l'image
+        if (isset($data['remove_image']) && $data['remove_image'] === '1') {
+            $payload['image_url'] = '';
+        }
+
         if ($id <= 0 && empty($payload['date_entree'])) {
             $payload['date_entree'] = wp_date('Y-m-d');
         }
@@ -1720,10 +1731,75 @@ final class Sempa_Stocks_App
         return 'uploads-stocks/' . $filename;
     }
 
+    /**
+     * Gère l'upload de l'image du produit
+     *
+     * @param int $product_id ID du produit
+     * @return string|null Chemin relatif de l'image ou null
+     */
+    private static function maybe_handle_image_upload(int $product_id)
+    {
+        if (empty($_FILES['product_image'])) {
+            return null;
+        }
+
+        $file = $_FILES['product_image'];
+        if (!empty($file['error']) || empty($file['tmp_name'])) {
+            return null;
+        }
+
+        if (!is_uploaded_file($file['tmp_name'])) {
+            wp_send_json_error(['message' => __('Image uploadée invalide.', 'sempa')], 400);
+        }
+
+        // Vérifier que c'est bien une image
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowed, true)) {
+            wp_send_json_error(['message' => __('Format d\'image non autorisé. Utilisez JPG, PNG, GIF ou WebP.', 'sempa')], 400);
+        }
+
+        // Vérifier le type MIME
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!in_array($mime, $allowed_mimes, true)) {
+            wp_send_json_error(['message' => __('Le fichier n\'est pas une image valide.', 'sempa')], 400);
+        }
+
+        $directory = trailingslashit(get_stylesheet_directory()) . 'uploads-stocks/images';
+        if (!wp_mkdir_p($directory)) {
+            wp_send_json_error(['message' => __('Impossible de créer le dossier d\'images.', 'sempa')], 500);
+        }
+
+        $slug = sanitize_title(pathinfo($file['name'], PATHINFO_FILENAME));
+        $filename = $slug ? $slug : 'product-image';
+        if ($product_id > 0) {
+            $filename .= '-' . $product_id;
+        }
+        $filename .= '-' . time() . '.' . $extension;
+
+        $destination = trailingslashit($directory) . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            wp_send_json_error(['message' => __('Impossible d\'enregistrer l\'image.', 'sempa')], 500);
+        }
+
+        return 'uploads-stocks/images/' . $filename;
+    }
+
     private static function format_product(array $product)
     {
         if (!$product) {
             return [];
+        }
+
+        $image_url = (string) Sempa_Stocks_DB::value($product, 'stocks_sempa', 'image_url', '');
+
+        // Convertir le chemin relatif en URL complète
+        if ($image_url && !preg_match('/^https?:\/\//i', $image_url)) {
+            $image_url = trailingslashit(get_stylesheet_directory_uri()) . $image_url;
         }
 
         return [
@@ -1743,6 +1819,7 @@ final class Sempa_Stocks_App
             'date_modification' => (string) Sempa_Stocks_DB::value($product, 'stocks_sempa', 'date_modification', ''),
             'notes' => (string) Sempa_Stocks_DB::value($product, 'stocks_sempa', 'notes', ''),
             'document_pdf' => (string) Sempa_Stocks_DB::value($product, 'stocks_sempa', 'document_pdf', ''),
+            'image_url' => $image_url,
             'ajoute_par' => (string) Sempa_Stocks_DB::value($product, 'stocks_sempa', 'ajoute_par', ''),
         ];
     }

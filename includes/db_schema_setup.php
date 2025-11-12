@@ -17,6 +17,7 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
                 self::ensure_suppliers_extended_columns();
                 self::ensure_products_supplier_column();
                 self::ensure_products_etat_materiel_column();
+                self::ensure_products_image_url_column();
                 self::ensure_audit_trail_columns();
                 self::ensure_audit_log_table();
                 self::ensure_saved_filters_table();
@@ -223,6 +224,45 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             }
 
             error_log('[Sempa] Etat_materiel column added to products table successfully');
+            return true;
+        }
+
+        /**
+         * Add image_url column to products table if it doesn't exist
+         * This column stores the product image URL
+         */
+        private static function ensure_products_image_url_column()
+        {
+            $db = Sempa_Stocks_DB::instance();
+
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                return false;
+            }
+
+            $products_table = Sempa_Stocks_DB::table('stocks_sempa');
+            if (empty($products_table)) {
+                return false;
+            }
+
+            // Check if image_url column already exists
+            $columns = $db->get_results("SHOW COLUMNS FROM " . Sempa_Stocks_DB::escape_identifier($products_table) . " LIKE 'image_url'");
+
+            if (!empty($columns)) {
+                return true; // Column already exists
+            }
+
+            // Add image_url column
+            $sql = "ALTER TABLE " . Sempa_Stocks_DB::escape_identifier($products_table) . "
+                    ADD COLUMN `image_url` TEXT DEFAULT NULL COMMENT 'URL de l''image du produit' AFTER `commentaire`";
+
+            $result = $db->query($sql);
+
+            if ($result === false) {
+                error_log('[Sempa] Failed to add image_url column to products table: ' . $db->last_error);
+                return false;
+            }
+
+            error_log('[Sempa] image_url column added to products table successfully');
             return true;
         }
 

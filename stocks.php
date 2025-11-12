@@ -931,6 +931,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <span><?php esc_html_e('Document (PDF ou image)', 'sempa'); ?></span>
                                     <input type="file" name="document" accept=".pdf,image/*" />
                                 </label>
+                                <label class="file">
+                                    <span><?php esc_html_e('Image du produit', 'sempa'); ?></span>
+                                    <input type="file" name="product_image" id="product-image-input" accept="image/*" />
+                                    <small class="field-hint"><?php esc_html_e('Cette image sera affichée dans la vue carte', 'sempa'); ?></small>
+                                </label>
+                                <div class="product-image-preview" id="product-image-preview" style="display: none;">
+                                    <img src="" alt="Aperçu" style="max-width: 200px; max-height: 200px; border-radius: 8px; margin-top: 8px;" />
+                                    <button type="button" class="button button--sm button--ghost" id="remove-product-image" style="margin-top: 8px;">
+                                        <?php esc_html_e('Supprimer l\'image', 'sempa'); ?>
+                                    </button>
+                                </div>
                                 <label class="notes">
                                     <span><?php esc_html_e('Notes internes', 'sempa'); ?></span>
                                     <textarea name="notes" rows="4"></textarea>

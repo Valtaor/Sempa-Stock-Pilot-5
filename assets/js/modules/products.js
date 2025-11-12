@@ -199,6 +199,49 @@ class ProductsModule {
       console.warn('⚠️ Formulaire produit non trouvé pour attacher le listener');
     }
 
+    // Prévisualisation de l'image du produit
+    const productImageInput = document.getElementById('product-image-input');
+    if (productImageInput) {
+      productImageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const preview = document.getElementById('product-image-preview');
+            const img = preview.querySelector('img');
+            img.src = event.target.result;
+            preview.style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    // Supprimer l'image du produit
+    const removeImageBtn = document.getElementById('remove-product-image');
+    if (removeImageBtn) {
+      removeImageBtn.addEventListener('click', () => {
+        const preview = document.getElementById('product-image-preview');
+        const input = document.getElementById('product-image-input');
+        const img = preview.querySelector('img');
+
+        img.src = '';
+        input.value = '';
+        preview.style.display = 'none';
+
+        // Ajouter un champ hidden pour indiquer la suppression au backend
+        const form = document.getElementById('stock-product-form');
+        let removeField = form.querySelector('input[name="remove_image"]');
+        if (!removeField) {
+          removeField = document.createElement('input');
+          removeField.type = 'hidden';
+          removeField.name = 'remove_image';
+          form.appendChild(removeField);
+        }
+        removeField.value = '1';
+      });
+    }
+
     // Recherche
     const searchInput = document.getElementById('stocks-search');
     if (searchInput) {
