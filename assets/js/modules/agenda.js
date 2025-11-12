@@ -10,6 +10,7 @@ class AgendaModule {
     this.currentFilter = 'active';
     this.currentTypeFilter = '';
     this.initialized = false;
+    this.listenersAttached = false;
 
     console.log('📅 AgendaModule créé');
   }
@@ -53,6 +54,14 @@ class AgendaModule {
    * Attache les event listeners
    */
   attachEventListeners() {
+    // Empêcher l'attachement multiple des listeners
+    if (this.listenersAttached) {
+      console.log('⏭️ Event listeners agenda déjà attachés, skip');
+      return;
+    }
+
+    console.log('🔗 Attachement event listeners agenda...');
+
     // Filtres de statut
     const statusFilters = document.querySelectorAll('[data-filter-status]');
     statusFilters.forEach(btn => {
@@ -89,6 +98,9 @@ class AgendaModule {
         this.checkLowStockProducts();
       });
     }
+
+    this.listenersAttached = true;
+    console.log('✅ Event listeners agenda attachés');
   }
 
   /**
@@ -112,7 +124,7 @@ class AgendaModule {
         window.Notification.show('Erreur lors du chargement des alertes', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
@@ -478,7 +490,7 @@ class AgendaModule {
         window.Notification.show('Erreur lors de la mise à jour', 'error');
       }
     } finally {
-      if (window.Loader) window.Loader.hide();
+      if (window.Loader) window.Loader.hideFullscreen();
     }
   }
 
