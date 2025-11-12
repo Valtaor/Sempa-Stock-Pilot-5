@@ -168,6 +168,33 @@ function sempa_stocks_enqueue_refonte_assets() {
         true
     );
 
+    // Composant BulkActionsBar
+    wp_enqueue_script(
+        'sp-bulk-actions-bar',
+        $assets_url . '/assets/js/components/BulkActionsBar.js',
+        [],
+        $version,
+        true
+    );
+
+    // Composant Notification
+    wp_enqueue_script(
+        'sp-notification',
+        $assets_url . '/assets/js/components/Notification.js',
+        [],
+        $version,
+        true
+    );
+
+    // Composant HistoryModal
+    wp_enqueue_script(
+        'sp-history-modal',
+        $assets_url . '/assets/js/components/HistoryModal.js',
+        ['sp-loader'],
+        $version,
+        true
+    );
+
     /* ========================================================================
        JAVASCRIPT - UTILITAIRES
        ======================================================================== */
@@ -198,7 +225,7 @@ function sempa_stocks_enqueue_refonte_assets() {
     wp_enqueue_script(
         'sp-products',
         $assets_url . '/assets/js/modules/products.js',
-        ['sp-api', 'sp-product-card', 'sp-loader'],
+        ['sp-api', 'sp-product-card', 'sp-loader', 'sp-bulk-actions-bar', 'sp-notification', 'sp-history-modal'],
         $version,
         true
     );
