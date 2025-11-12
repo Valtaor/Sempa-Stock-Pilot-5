@@ -412,6 +412,9 @@ class ProductCard {
   }
 }
 
+// Export global pour utilisation dans les scripts
+window.ProductCard = ProductCard;
+
 // Export pour utilisation en module ES6
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ProductCard;
