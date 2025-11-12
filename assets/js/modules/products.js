@@ -938,7 +938,8 @@ class ProductsModule {
       try {
         // Sauvegarder via l'API
         const updateData = { [field]: newValue };
-        await API.updateProduct(productId, updateData);
+        const apiClient = await this.getApiClient();
+        await apiClient.updateProduct(productId, updateData);
 
         // Mettre à jour le produit dans le cache local
         const productIndex = this.products.findIndex(p => p.id === productId);
@@ -950,12 +951,16 @@ class ProductsModule {
         this.displayCellValue(cell, field, newValue);
 
         // Notification de succès
-        Notification.show(`${this.getFieldLabel(field)} mis à jour`, 'success');
+        if (window.StockPilotNotification) {
+          window.StockPilotNotification.success(`${this.getFieldLabel(field)} mis à jour`);
+        }
 
         console.log(`✅ ${field} mis à jour pour produit ${productId}:`, newValue);
       } catch (error) {
         console.error('Erreur lors de la mise à jour:', error);
-        Notification.show('Erreur lors de la mise à jour', 'error');
+        if (window.StockPilotNotification) {
+          window.StockPilotNotification.error('Erreur lors de la mise à jour');
+        }
         cancel();
       }
     };
