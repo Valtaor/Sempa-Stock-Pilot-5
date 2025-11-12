@@ -9,8 +9,9 @@ class SuppliersModule {
     this.suppliers = [];
     this.currentSupplier = null;
     this.searchTerm = '';
+    this.initialized = false;
 
-    console.log('📦 SuppliersModule initialisé');
+    console.log('📦 SuppliersModule créé');
   }
 
   /**
@@ -22,6 +23,7 @@ class SuppliersModule {
     this.attachEventListeners();
     await this.loadSuppliers();
 
+    this.initialized = true;
     console.log('✅ Module fournisseurs initialisé');
   }
 
@@ -466,10 +468,8 @@ Cordialement,"></textarea>
   }
 }
 
-// Instance globale
-let suppliersModule = null;
-
-// Initialisation automatique
-document.addEventListener('DOMContentLoaded', () => {
-  suppliersModule = new SuppliersModule();
-});
+// Créer et exposer l'instance globale
+if (typeof window !== 'undefined') {
+  window.suppliersModule = new SuppliersModule();
+  console.log('✅ Module Fournisseurs créé et exposé globalement');
+}
