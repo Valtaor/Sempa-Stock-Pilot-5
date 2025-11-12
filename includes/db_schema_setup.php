@@ -14,11 +14,13 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
         {
             try {
                 self::ensure_suppliers_table();
+                self::ensure_suppliers_extended_columns();
                 self::ensure_products_supplier_column();
                 self::ensure_products_etat_materiel_column();
                 self::ensure_audit_trail_columns();
                 self::ensure_audit_log_table();
                 self::ensure_saved_filters_table();
+                self::ensure_stock_alerts_table();
             } catch (\Throwable $exception) {
                 if (function_exists('error_log')) {
                     error_log('[Sempa] Schema setup error: ' . $exception->getMessage());
@@ -66,6 +68,78 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             Sempa_Stocks_DB::clear_cache();
 
             error_log('[Sempa] Suppliers table created successfully');
+            return true;
+        }
+
+        /**
+         * Add extended columns to suppliers table for complete supplier profiles
+         */
+        private static function ensure_suppliers_extended_columns()
+        {
+            $db = Sempa_Stocks_DB::instance();
+
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                return false;
+            }
+
+            $suppliers_table = 'fournisseurs';
+
+            // Check which columns are missing
+            $existing_columns = $db->get_col("SHOW COLUMNS FROM " . Sempa_Stocks_DB::escape_identifier($suppliers_table));
+            $columns_to_add = [];
+
+            if (!in_array('adresse', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `adresse` TEXT DEFAULT NULL COMMENT 'Adresse du fournisseur'";
+            }
+
+            if (!in_array('code_postal', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `code_postal` VARCHAR(20) DEFAULT NULL COMMENT 'Code postal'";
+            }
+
+            if (!in_array('ville', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `ville` VARCHAR(255) DEFAULT NULL COMMENT 'Ville'";
+            }
+
+            if (!in_array('pays', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `pays` VARCHAR(255) DEFAULT 'France' COMMENT 'Pays'";
+            }
+
+            if (!in_array('site_web', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `site_web` VARCHAR(255) DEFAULT NULL COMMENT 'Site web'";
+            }
+
+            if (!in_array('siret', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `siret` VARCHAR(50) DEFAULT NULL COMMENT 'Numéro SIRET'";
+            }
+
+            if (!in_array('conditions_paiement', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `conditions_paiement` TEXT DEFAULT NULL COMMENT 'Conditions de paiement'";
+            }
+
+            if (!in_array('delai_livraison', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `delai_livraison` VARCHAR(100) DEFAULT NULL COMMENT 'Délai de livraison habituel'";
+            }
+
+            if (!in_array('notes', $existing_columns)) {
+                $columns_to_add[] = "ADD COLUMN `notes` TEXT DEFAULT NULL COMMENT 'Notes et commentaires'";
+            }
+
+            // If no columns to add, return
+            if (empty($columns_to_add)) {
+                return true;
+            }
+
+            // Build and execute ALTER TABLE query
+            $sql = "ALTER TABLE " . Sempa_Stocks_DB::escape_identifier($suppliers_table) . " " . implode(', ', $columns_to_add);
+
+            $result = $db->query($sql);
+
+            if ($result === false) {
+                error_log('[Sempa] Failed to add extended columns to suppliers table: ' . $db->last_error);
+                return false;
+            }
+
+            error_log('[Sempa] Extended columns added to suppliers table successfully');
             return true;
         }
 
@@ -321,6 +395,59 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             }
 
             error_log('[Sempa] Saved filters table created successfully');
+            return true;
+        }
+
+        /**
+         * Create the stock_alerts table for tracking stock alerts and reorder reminders
+         */
+        private static function ensure_stock_alerts_table()
+        {
+            $db = Sempa_Stocks_DB::instance();
+
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                error_log('[Sempa] Cannot create stock_alerts table: database connection not available');
+                return false;
+            }
+
+            // Check if table already exists
+            $table_name = 'sempa_stock_alerts';
+            $existing_tables = $db->get_col("SHOW TABLES LIKE '$table_name'");
+            if (!empty($existing_tables)) {
+                return true; // Table already exists
+            }
+
+            // Create the stock_alerts table
+            $sql = "CREATE TABLE IF NOT EXISTS `$table_name` (
+                `id` INT(11) NOT NULL AUTO_INCREMENT,
+                `product_id` INT(11) NOT NULL COMMENT 'ID du produit',
+                `alert_type` ENUM('low_stock', 'out_of_stock', 'reorder_reminder') NOT NULL COMMENT 'Type d''alerte',
+                `status` ENUM('active', 'acknowledged', 'resolved') DEFAULT 'active' COMMENT 'Statut de l''alerte',
+                `alert_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Date de l''alerte',
+                `reorder_date` DATE DEFAULT NULL COMMENT 'Date prévue de commande',
+                `quantity_needed` INT(11) DEFAULT NULL COMMENT 'Quantité à commander',
+                `supplier_id` INT(11) DEFAULT NULL COMMENT 'Fournisseur recommandé',
+                `notes` TEXT DEFAULT NULL COMMENT 'Notes sur l''alerte',
+                `acknowledged_by` INT(11) DEFAULT NULL COMMENT 'ID utilisateur ayant pris en charge',
+                `acknowledged_at` DATETIME DEFAULT NULL COMMENT 'Date de prise en charge',
+                `resolved_at` DATETIME DEFAULT NULL COMMENT 'Date de résolution',
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `idx_product` (`product_id`),
+                KEY `idx_status` (`status`),
+                KEY `idx_alert_type` (`alert_type`),
+                KEY `idx_reorder_date` (`reorder_date`),
+                KEY `idx_supplier` (`supplier_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+            $result = $db->query($sql);
+
+            if ($result === false) {
+                error_log('[Sempa] Failed to create stock_alerts table: ' . $db->last_error);
+                return false;
+            }
+
+            error_log('[Sempa] Stock alerts table created successfully');
             return true;
         }
     }

@@ -51,6 +51,7 @@ $version = time(); // Cache busting RADICAL - force rechargement total
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/history-modal.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/components/bulk-actions-bar.css?ver=' . $version); ?>">
 <link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/views/products-view.css?ver=' . $version); ?>">
+<link rel="stylesheet" href="<?php echo esc_url($assets_url . '/assets/css/views/suppliers-agenda.css?ver=' . $version); ?>">
 
 <!-- Fix visibilité produits + Sticky sidebar + Clics forcés -->
 <style>
@@ -228,6 +229,8 @@ console.log('🔍 DIAGNOSTIC API:', {
 <script src="<?php echo esc_url($assets_url . '/assets/js/modules/dashboard.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/modules/products.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/modules/movements.js?ver=' . $version); ?>"></script>
+<script src="<?php echo esc_url($assets_url . '/assets/js/modules/suppliers.js?ver=' . $version); ?>"></script>
+<script src="<?php echo esc_url($assets_url . '/assets/js/modules/agenda.js?ver=' . $version); ?>"></script>
 <script src="<?php echo esc_url($assets_url . '/assets/js/modules/import-csv.js?ver=' . $version); ?>"></script>
 
 <!-- StockPilot JavaScript - Application principale -->
@@ -444,6 +447,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <li><a href="#view-dashboard" data-view="dashboard" class="active"><i data-lucide="layout-dashboard" class="nav-icon-lucide"></i><?php esc_html_e('Tableau de bord', 'sempa'); ?></a></li>
                         <li><a href="#view-products" data-view="products"><i data-lucide="package" class="nav-icon-lucide"></i><?php esc_html_e('Produits', 'sempa'); ?></a></li>
                         <li><a href="#view-movements" data-view="movements"><i data-lucide="repeat" class="nav-icon-lucide"></i><?php esc_html_e('Mouvements', 'sempa'); ?></a></li>
+                        <li><a href="#view-suppliers" data-view="suppliers"><i data-lucide="truck" class="nav-icon-lucide"></i><?php esc_html_e('Fournisseurs', 'sempa'); ?></a></li>
+                        <li><a href="#view-agenda" data-view="agenda"><i data-lucide="calendar" class="nav-icon-lucide"></i><?php esc_html_e('Agenda', 'sempa'); ?></a></li>
                         <li><a href="#view-reports" data-view="reports"><i data-lucide="file-bar-chart" class="nav-icon-lucide"></i><?php esc_html_e('Rapports', 'sempa'); ?></a></li>
                         <li><a href="#view-settings" data-view="settings"><i data-lucide="settings" class="nav-icon-lucide"></i><?php esc_html_e('Paramètres', 'sempa'); ?></a></li>
                     </ul>
@@ -707,6 +712,90 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </section>
+
+                    <!-- Section Fournisseurs -->
+                    <section class="stockpilot-section main-view" id="view-suppliers" aria-labelledby="stocks-suppliers-title">
+                        <div class="section-header">
+                            <div>
+                                <p class="section-eyebrow"><?php esc_html_e('Gestion', 'sempa'); ?></p>
+                                <h2 id="stocks-suppliers-title"><?php esc_html_e('Fournisseurs', 'sempa'); ?></h2>
+                                <p class="section-subtitle"><?php esc_html_e('Gérez vos fournisseurs et leurs coordonnées complètes.', 'sempa'); ?></p>
+                            </div>
+                            <div class="section-actions">
+                                <input type="search" id="suppliers-search" placeholder="<?php esc_attr_e('Rechercher un fournisseur…', 'sempa'); ?>" />
+                                <button type="button" id="btn-refresh-suppliers" class="button button--ghost" aria-label="<?php esc_attr_e('Actualiser', 'sempa'); ?>">
+                                    <i data-lucide="refresh-cw"></i>
+                                    <?php esc_html_e('Actualiser', 'sempa'); ?>
+                                </button>
+                                <button type="button" id="btn-add-supplier" class="button button--primary">
+                                    <i data-lucide="plus"></i>
+                                    <?php esc_html_e('Nouveau fournisseur', 'sempa'); ?>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="suppliers-list" class="suppliers-grid">
+                            <div class="loader-container">
+                                <div class="loader"></div>
+                                <p><?php esc_html_e('Chargement des fournisseurs…', 'sempa'); ?></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section Agenda -->
+                    <section class="stockpilot-section main-view" id="view-agenda" aria-labelledby="stocks-agenda-title">
+                        <div class="section-header">
+                            <div>
+                                <p class="section-eyebrow"><?php esc_html_e('Planification', 'sempa'); ?></p>
+                                <h2 id="stocks-agenda-title"><?php esc_html_e('Agenda prévisionnel', 'sempa'); ?></h2>
+                                <p class="section-subtitle"><?php esc_html_e('Alertes de rupture de stock et planification des commandes.', 'sempa'); ?></p>
+                            </div>
+                            <div class="section-actions">
+                                <button type="button" id="btn-refresh-agenda" class="button button--ghost" aria-label="<?php esc_attr_e('Actualiser', 'sempa'); ?>">
+                                    <i data-lucide="refresh-cw"></i>
+                                    <?php esc_html_e('Actualiser', 'sempa'); ?>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="agenda-stats">
+                            <div class="stat-card stat-card--warning">
+                                <div class="stat-card__icon">
+                                    <i data-lucide="alert-triangle"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <div class="stat-card__value" data-stat="active-alerts">0</div>
+                                    <div class="stat-card__label"><?php esc_html_e('Alertes actives', 'sempa'); ?></div>
+                                </div>
+                            </div>
+                            <div class="stat-card stat-card--info">
+                                <div class="stat-card__icon">
+                                    <i data-lucide="clock"></i>
+                                </div>
+                                <div class="stat-card__content">
+                                    <div class="stat-card__value" data-stat="acknowledged-alerts">0</div>
+                                    <div class="stat-card__label"><?php esc_html_e('En cours de traitement', 'sempa'); ?></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="agenda-filters">
+                            <button type="button" class="button button--sm active" data-filter-status="active"><?php esc_html_e('Actives', 'sempa'); ?></button>
+                            <button type="button" class="button button--sm" data-filter-status="acknowledged"><?php esc_html_e('En cours', 'sempa'); ?></button>
+                            <button type="button" class="button button--sm" data-filter-status="resolved"><?php esc_html_e('Résolues', 'sempa'); ?></button>
+                            <div class="agenda-filters__separator"></div>
+                            <button type="button" class="button button--sm" data-filter-type=""><?php esc_html_e('Tous types', 'sempa'); ?></button>
+                            <button type="button" class="button button--sm" data-filter-type="low_stock"><?php esc_html_e('Stock faible', 'sempa'); ?></button>
+                            <button type="button" class="button button--sm" data-filter-type="out_of_stock"><?php esc_html_e('Rupture', 'sempa'); ?></button>
+                        </div>
+
+                        <div id="alerts-list" class="alerts-container">
+                            <div class="loader-container">
+                                <div class="loader"></div>
+                                <p><?php esc_html_e('Chargement des alertes…', 'sempa'); ?></p>
+                            </div>
                         </div>
                     </section>
 

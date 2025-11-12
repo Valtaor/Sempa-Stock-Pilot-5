@@ -240,6 +240,69 @@ class API {
   }
 
   /**
+   * Fournisseurs - Récupérer la liste
+   */
+  async getSuppliers(filters = {}) {
+    return this.get('sempa_stocks_suppliers', filters);
+  }
+
+  /**
+   * Fournisseurs - Supprimer un fournisseur
+   */
+  async deleteSupplier(supplierId) {
+    return this.post('sempa_stocks_delete_supplier', { id: supplierId });
+  }
+
+  /**
+   * Fournisseurs - Envoyer un email
+   *
+   * @param {number} supplierId - ID du fournisseur
+   * @param {string} subject - Sujet de l'email
+   * @param {string} message - Corps du message
+   * @param {Array} productIds - IDs des produits (optionnel)
+   */
+  async sendSupplierEmail(supplierId, subject, message, productIds = []) {
+    return this.post('sempa_stocks_send_supplier_email', {
+      supplier_id: supplierId,
+      subject: subject,
+      message: message,
+      product_ids: productIds
+    });
+  }
+
+  /**
+   * Alertes - Récupérer les alertes de stock
+   *
+   * @param {string} status - Statut des alertes (active, acknowledged, resolved)
+   * @param {string} type - Type d'alerte (optionnel)
+   */
+  async getStockAlerts(status = 'active', type = '') {
+    return this.get('sempa_stocks_stock_alerts', { status, type });
+  }
+
+  /**
+   * Alertes - Créer une alerte de stock
+   *
+   * @param {Object} alertData - Données de l'alerte
+   */
+  async createStockAlert(alertData) {
+    return this.post('sempa_stocks_create_alert', alertData);
+  }
+
+  /**
+   * Alertes - Mettre à jour une alerte
+   *
+   * @param {number} alertId - ID de l'alerte
+   * @param {Object} updateData - Données à mettre à jour
+   */
+  async updateStockAlert(alertId, updateData) {
+    return this.post('sempa_stocks_update_alert', {
+      id: alertId,
+      ...updateData
+    });
+  }
+
+  /**
    * Export - Générer un export CSV
    */
   async exportCSV(filters = {}) {
