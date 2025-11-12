@@ -40,6 +40,7 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_update_alert', [__CLASS__, 'ajax_update_alert']);
         add_action('wp_ajax_sempa_stocks_get_history', [__CLASS__, 'ajax_get_history']);
         add_action('wp_ajax_sempa_stocks_test_audit', [__CLASS__, 'ajax_test_audit']); // Diagnostic endpoint
+        add_action('wp_ajax_sempa_stocks_import_csv', [__CLASS__, 'ajax_import_csv']);
         add_action('init', [__CLASS__, 'register_export_route']);
     }
 
@@ -1922,6 +1923,126 @@ final class Sempa_Login_Redirect
             wp_safe_redirect(home_url('/stock-pilot/'), 301);
             exit;
         }
+    }
+
+    /**
+     * AJAX: Importer des produits depuis CSV
+     */
+    public static function ajax_import_csv()
+    {
+        self::ensure_secure_request();
+        self::ensure_database_connected();
+
+        // Augmenter le temps d'exécution pour les gros imports
+        set_time_limit(300); // 5 minutes
+
+        $products_json = isset($_POST['products']) ? wp_unslash($_POST['products']) : '';
+
+        if (empty($products_json)) {
+            wp_send_json_error(['message' => __('Aucune donnée de produits fournie.', 'sempa')], 400);
+        }
+
+        $products = json_decode($products_json, true);
+
+        if (!is_array($products) || empty($products)) {
+            wp_send_json_error(['message' => __('Données de produits invalides.', 'sempa')], 400);
+        }
+
+        $db = Sempa_Stocks_DB::instance();
+        $table = Sempa_Stocks_DB::get_table_name('produits_stocks');
+
+        $success_count = 0;
+        $errors = [];
+
+        foreach ($products as $index => $product) {
+            try {
+                // Valider les données requises
+                if (empty($product['reference'])) {
+                    $errors[] = sprintf(__('Ligne %d: Référence manquante', 'sempa'), $index + 2);
+                    continue;
+                }
+
+                if (empty($product['designation'])) {
+                    $errors[] = sprintf(__('Ligne %d: Désignation manquante', 'sempa'), $index + 2);
+                    continue;
+                }
+
+                // Préparer les données (support de plusieurs formats de colonnes)
+                $data = [
+                    'reference' => sanitize_text_field($product['reference']),
+                    'designation' => sanitize_text_field($product['designation']),
+                    'stock_actuel' => isset($product['stock_actuel']) ? intval($product['stock_actuel']) : 0,
+                    // Support stock_min et stock_minimum
+                    'stock_min' => isset($product['stock_min']) ? intval($product['stock_min']) :
+                                   (isset($product['stock_minimum']) ? intval($product['stock_minimum']) : 0),
+                    // Support prix_unitaire, prix_achat et prix_vente
+                    'prix_unitaire' => isset($product['prix_unitaire']) ? floatval($product['prix_unitaire']) :
+                                       (isset($product['prix_achat']) ? floatval($product['prix_achat']) :
+                                       (isset($product['prix_vente']) ? floatval($product['prix_vente']) : 0)),
+                    'categorie' => isset($product['categorie']) ? sanitize_text_field($product['categorie']) : '',
+                    'fournisseur' => isset($product['fournisseur']) ? sanitize_text_field($product['fournisseur']) : '',
+                    'emplacement' => isset($product['emplacement']) ? sanitize_text_field($product['emplacement']) : '',
+                    // Support commentaire et notes
+                    'commentaire' => isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) :
+                                     (isset($product['notes']) ? sanitize_textarea_field($product['notes']) : ''),
+                    'date_modification' => current_time('mysql')
+                ];
+
+                // Vérifier si le produit existe déjà
+                $existing = $db->get_row(
+                    $db->prepare(
+                        "SELECT id FROM `$table` WHERE reference = %s",
+                        $data['reference']
+                    ),
+                    ARRAY_A
+                );
+
+                if ($existing) {
+                    // Mettre à jour
+                    $updated = $db->update(
+                        $table,
+                        $data,
+                        ['id' => $existing['id']]
+                    );
+
+                    if ($updated !== false) {
+                        $success_count++;
+                    } else {
+                        $errors[] = sprintf(
+                            __('Ligne %d: Erreur mise à jour produit %s', 'sempa'),
+                            $index + 2,
+                            $data['reference']
+                        );
+                    }
+                } else {
+                    // Insérer
+                    $data['date_creation'] = current_time('mysql');
+                    $inserted = $db->insert($table, $data);
+
+                    if ($inserted) {
+                        $success_count++;
+                    } else {
+                        $errors[] = sprintf(
+                            __('Ligne %d: Erreur insertion produit %s', 'sempa'),
+                            $index + 2,
+                            $data['reference']
+                        );
+                    }
+                }
+            } catch (Exception $e) {
+                $errors[] = sprintf(
+                    __('Ligne %d: %s', 'sempa'),
+                    $index + 2,
+                    $e->getMessage()
+                );
+            }
+        }
+
+        wp_send_json_success([
+            'success_count' => $success_count,
+            'errors' => $errors,
+            'total' => count($products)
+        ]);
     }
 
     /**
