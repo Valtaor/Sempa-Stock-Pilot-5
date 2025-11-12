@@ -256,22 +256,40 @@ class StockPilotApp {
         // Initialiser les fournisseurs si pas déjà fait
         if (window.suppliersModule && !window.suppliersModule.initialized) {
           console.log('🚀 Initialisation module fournisseurs...');
-          await window.suppliersModule.init();
-          window.suppliersModule.initialized = true;
-        } else if (window.suppliersModule) {
+          try {
+            await window.suppliersModule.init();
+          } catch (error) {
+            console.error('❌ Erreur initialisation fournisseurs:', error);
+            // Marquer comme initialisé pour éviter les boucles infinies
+            window.suppliersModule.initialized = true;
+          }
+        } else if (window.suppliersModule && window.suppliersModule.initialized) {
           console.log('✅ Vue fournisseurs affichée - rafraîchissement...');
-          await window.suppliersModule.loadSuppliers();
+          try {
+            await window.suppliersModule.loadSuppliers();
+          } catch (error) {
+            console.error('❌ Erreur chargement fournisseurs:', error);
+          }
         }
         break;
       case 'agenda':
         // Initialiser l'agenda si pas déjà fait
         if (window.agendaModule && !window.agendaModule.initialized) {
           console.log('🚀 Initialisation module agenda...');
-          await window.agendaModule.init();
-          window.agendaModule.initialized = true;
-        } else if (window.agendaModule) {
+          try {
+            await window.agendaModule.init();
+          } catch (error) {
+            console.error('❌ Erreur initialisation agenda:', error);
+            // Marquer comme initialisé pour éviter les boucles infinies
+            window.agendaModule.initialized = true;
+          }
+        } else if (window.agendaModule && window.agendaModule.initialized) {
           console.log('✅ Vue agenda affichée - rafraîchissement...');
-          await window.agendaModule.loadAlerts();
+          try {
+            await window.agendaModule.loadAlerts();
+          } catch (error) {
+            console.error('❌ Erreur chargement alertes:', error);
+          }
         }
         break;
       case 'reports':
