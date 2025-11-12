@@ -8,6 +8,7 @@
 class StockPilotApp {
   constructor() {
     this.currentView = 'dashboard';
+    this.isChangingView = false;
     this.initialized = false;
   }
 
@@ -131,7 +132,20 @@ class StockPilotApp {
    *
    * @param {string} viewName - Nom de la vue (dashboard, products, movements, etc.)
    */
-  switchView(viewName) {
+  async switchView(viewName) {
+    // Empêcher le changement vers la même vue (évite les boucles infinies)
+    if (this.currentView === viewName) {
+      console.log(`⏭️ Vue déjà active: ${viewName}`);
+      return;
+    }
+
+    // Empêcher les appels simultanés
+    if (this.isChangingView) {
+      console.log(`⏳ Changement de vue déjà en cours...`);
+      return;
+    }
+
+    this.isChangingView = true;
     console.log(`🔄 Changement de vue: ${viewName}`);
 
     // Fade out toutes les vues
@@ -175,7 +189,14 @@ class StockPilotApp {
     this.currentView = viewName;
 
     // Initialiser le module correspondant si nécessaire
-    this.initModuleForView(viewName);
+    try {
+      await this.initModuleForView(viewName);
+    } catch (error) {
+      console.error(`❌ Erreur lors de l'initialisation de la vue ${viewName}:`, error);
+    } finally {
+      // Libérer le verrou
+      this.isChangingView = false;
+    }
   }
 
   /**
