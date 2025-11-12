@@ -249,26 +249,51 @@ class ImportCSVModule {
   }
 
   /**
-   * Parse le CSV
+   * Parse le CSV (supporte virgules, tabulations et points-virgules)
    */
   parseCSV(text) {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
+    // Détecter le séparateur automatiquement (TAB, virgule ou point-virgule)
+    const firstLine = lines[0];
+    let separator = ',';
+
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+
+    // Utiliser le séparateur le plus fréquent
+    if (tabCount > commaCount && tabCount > semicolonCount) {
+      separator = '\t';
+      console.log('📋 Détection: fichier TSV (séparateur TAB)');
+    } else if (semicolonCount > commaCount) {
+      separator = ';';
+      console.log('📋 Détection: fichier CSV (séparateur point-virgule)');
+    } else {
+      console.log('📋 Détection: fichier CSV (séparateur virgule)');
+    }
+
+    const headers = firstLine.split(separator).map(h => h.trim());
     const data = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
+      const line = lines[i].trim();
+      if (!line) continue; // Ignorer les lignes vides
+
+      const values = line.split(separator);
       if (values.length === headers.length) {
         const row = {};
         headers.forEach((header, index) => {
           row[header] = values[index] ? values[index].trim() : '';
         });
         data.push(row);
+      } else {
+        console.warn(`⚠️ Ligne ${i + 1} ignorée: ${values.length} colonnes trouvées, ${headers.length} attendues`);
       }
     }
 
+    console.log(`✅ ${data.length} lignes parsées avec succès`);
     return data;
   }
 
