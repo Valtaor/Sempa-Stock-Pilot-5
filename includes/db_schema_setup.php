@@ -253,7 +253,7 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
 
             // Add image_url column
             $sql = "ALTER TABLE " . Sempa_Stocks_DB::escape_identifier($products_table) . "
-                    ADD COLUMN `image_url` TEXT DEFAULT NULL COMMENT 'URL de l''image du produit' AFTER `commentaire`";
+                    ADD COLUMN `image_url` TEXT DEFAULT NULL COMMENT 'URL de l''image du produit'";
 
             $result = $db->query($sql);
 
@@ -279,7 +279,7 @@ if (!class_exists('Sempa_Stocks_Schema_Setup')) {
             }
 
             $products_table = Sempa_Stocks_DB::table('stocks_sempa');
-            $movements_table = Sempa_Stocks_DB::table('mouvements_sempa');
+            $movements_table = Sempa_Stocks_DB::table('mouvements_stocks_sempa');
 
             // Add audit columns to products table
             if (!empty($products_table)) {
