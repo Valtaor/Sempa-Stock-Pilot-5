@@ -2032,6 +2032,9 @@ final class Sempa_Login_Redirect
         $success_count = 0;
         $errors = [];
 
+        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+        $reference_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'reference', false) ?: 'reference';
+
         foreach ($products as $index => $product) {
             try {
                 // Valider les données requises
@@ -2050,49 +2053,39 @@ final class Sempa_Login_Redirect
                     'reference' => sanitize_text_field($product['reference']),
                     'designation' => sanitize_text_field($product['designation']),
                     'stock_actuel' => isset($product['stock_actuel']) && $product['stock_actuel'] !== '' ? intval($product['stock_actuel']) : 0,
-                    // Support stock_min et stock_minimum
-                    'stock_min' => isset($product['stock_min']) && $product['stock_min'] !== '' ? intval($product['stock_min']) :
-                                   (isset($product['stock_minimum']) && $product['stock_minimum'] !== '' ? intval($product['stock_minimum']) : 0),
-                    // Support prix_unitaire, prix_achat et prix_vente (essayer tous)
-                    'prix_unitaire' => isset($product['prix_unitaire']) && $product['prix_unitaire'] !== '' ? floatval($product['prix_unitaire']) :
-                                       (isset($product['prix_achat']) && $product['prix_achat'] !== '' ? floatval($product['prix_achat']) : 0),
+                    'stock_minimum' => isset($product['stock_minimum']) && $product['stock_minimum'] !== '' ? intval($product['stock_minimum']) :
+                                       (isset($product['stock_min']) && $product['stock_min'] !== '' ? intval($product['stock_min']) : 0),
+                    'stock_maximum' => isset($product['stock_maximum']) && $product['stock_maximum'] !== '' ? intval($product['stock_maximum']) : 0,
+                    'prix_achat' => isset($product['prix_achat']) && $product['prix_achat'] !== '' ? floatval($product['prix_achat']) :
+                                    (isset($product['prix_unitaire']) && $product['prix_unitaire'] !== '' ? floatval($product['prix_unitaire']) : 0),
+                    'prix_vente' => isset($product['prix_vente']) && $product['prix_vente'] !== '' ? floatval($product['prix_vente']) : 0,
                     'categorie' => isset($product['categorie']) ? sanitize_text_field($product['categorie']) : '',
                     'fournisseur' => isset($product['fournisseur']) ? sanitize_text_field($product['fournisseur']) : '',
                     'emplacement' => isset($product['emplacement']) ? sanitize_text_field($product['emplacement']) : '',
-                    // Support commentaire et notes
-                    'commentaire' => isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) :
-                                     (isset($product['notes']) ? sanitize_textarea_field($product['notes']) : ''),
-                    'date_modification' => current_time('mysql')
+                    'notes' => isset($product['notes']) ? sanitize_textarea_field($product['notes']) :
+                               (isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) : ''),
+                    'etat_materiel' => isset($product['etat_materiel']) ? sanitize_text_field($product['etat_materiel']) : 'neuf',
                 ];
-
-                // Ajouter les colonnes supplémentaires si elles existent dans le CSV
-                // (elles seront ignorées par wpdb si elles n'existent pas dans la table)
-                if (isset($product['etat_materiel']) && $product['etat_materiel'] !== '') {
-                    $data['etat_materiel'] = sanitize_text_field($product['etat_materiel']);
-                }
-                if (isset($product['prix_vente']) && $product['prix_vente'] !== '') {
-                    $data['prix_vente'] = floatval($product['prix_vente']);
-                }
-                if (isset($product['stock_maximum']) && $product['stock_maximum'] !== '') {
-                    $data['stock_maximum'] = intval($product['stock_maximum']);
-                }
 
                 // Vérifier si le produit existe déjà
                 $existing = $db->get_row(
                     $db->prepare(
-                        "SELECT id FROM `$table` WHERE reference = %s",
+                        'SELECT ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($reference_column) . ' = %s',
                         $data['reference']
                     ),
                     ARRAY_A
                 );
 
                 if ($existing) {
-                    // Mettre à jour
-                    $updated = $db->update(
-                        $table,
-                        $data,
-                        ['id' => $existing['id']]
-                    );
+                    // Mettre à jour - normaliser les colonnes
+                    $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
+                    $modified_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_modification', false);
+                    if ($modified_column) {
+                        $normalized_data[$modified_column] = current_time('mysql');
+                    }
+
+                    $where = [$id_column => $existing[$id_column]];
+                    $updated = $db->update($table, $normalized_data, $where);
 
                     if ($updated !== false) {
                         $success_count++;
@@ -2104,9 +2097,14 @@ final class Sempa_Login_Redirect
                         );
                     }
                 } else {
-                    // Insérer
-                    $data['date_creation'] = current_time('mysql');
-                    $inserted = $db->insert($table, $data);
+                    // Insérer - normaliser les colonnes
+                    $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
+                    $date_creation_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_entree', false);
+                    if ($date_creation_column) {
+                        $normalized_data[$date_creation_column] = current_time('mysql');
+                    }
+
+                    $inserted = $db->insert($table, $normalized_data);
 
                     if ($inserted) {
                         $success_count++;
