@@ -41,7 +41,6 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_update_alert', [__CLASS__, 'ajax_update_alert']);
         add_action('wp_ajax_sempa_stocks_get_history', [__CLASS__, 'ajax_get_history']);
         add_action('wp_ajax_sempa_stocks_test_audit', [__CLASS__, 'ajax_test_audit']); // Diagnostic endpoint
-        add_action('wp_ajax_sempa_stocks_import_csv', [__CLASS__, 'ajax_import_csv']);
         add_action('init', [__CLASS__, 'register_export_route']);
     }
 
