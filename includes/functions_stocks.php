@@ -2008,19 +2008,32 @@ final class Sempa_Login_Redirect
      */
     public static function ajax_import_csv()
     {
-        self::ensure_secure_request();
-        self::ensure_database_connected();
+        // Log pour debug
+        error_log('🚀 ajax_import_csv appelé');
 
-        // Augmenter le temps d'exécution pour les gros imports
-        set_time_limit(300); // 5 minutes
+        try {
+            self::ensure_secure_request();
+            error_log('✅ ensure_secure_request OK');
 
-        $products_json = isset($_POST['products']) ? wp_unslash($_POST['products']) : '';
+            self::ensure_database_connected();
+            error_log('✅ ensure_database_connected OK');
 
-        if (empty($products_json)) {
-            wp_send_json_error(['message' => __('Aucune donnée de produits fournie.', 'sempa')], 400);
+            // Augmenter le temps d'exécution pour les gros imports
+            set_time_limit(300); // 5 minutes
+
+            $products_json = isset($_POST['products']) ? wp_unslash($_POST['products']) : '';
+            error_log('📦 products_json reçu : ' . strlen($products_json) . ' caractères');
+
+            if (empty($products_json)) {
+                wp_send_json_error(['message' => __('Aucune donnée de produits fournie.', 'sempa')], 400);
+            }
+
+            $products = json_decode($products_json, true);
+            error_log('📊 Produits décodés : ' . count($products) . ' produits');
+        } catch (Exception $e) {
+            error_log('❌ Erreur dans ajax_import_csv : ' . $e->getMessage());
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
-
-        $products = json_decode($products_json, true);
 
         if (!is_array($products) || empty($products)) {
             wp_send_json_error(['message' => __('Données de produits invalides.', 'sempa')], 400);
