@@ -2011,16 +2011,22 @@ final class Sempa_Login_Redirect
      */
     public static function ajax_import_csv()
     {
-        // Log pour debug
-        error_log('🚀 ajax_import_csv appelé');
+        // Log pour debug - TOUT AU DÉBUT
+        error_log('========================================');
+        error_log('🚀 ajax_import_csv DÉBUT D\'EXÉCUTION');
+        error_log('POST data: ' . print_r($_POST, true));
+        error_log('========================================');
 
         try {
+            error_log('📍 Étape 1: Appel de ensure_secure_request()');
             self::ensure_secure_request();
             error_log('✅ ensure_secure_request OK');
 
+            error_log('📍 Étape 2: Appel de ensure_database_connected()');
             self::ensure_database_connected();
             error_log('✅ ensure_database_connected OK');
 
+            error_log('📍 Étape 3: Récupération des données POST');
             // Augmenter le temps d'exécution pour les gros imports
             set_time_limit(300); // 5 minutes
 
@@ -2028,27 +2034,38 @@ final class Sempa_Login_Redirect
             error_log('📦 products_json reçu : ' . strlen($products_json) . ' caractères');
 
             if (empty($products_json)) {
+                error_log('❌ products_json est vide');
                 wp_send_json_error(['message' => __('Aucune donnée de produits fournie.', 'sempa')], 400);
             }
 
+            error_log('📍 Étape 4: Décodage JSON');
             $products = json_decode($products_json, true);
-            error_log('📊 Produits décodés : ' . count($products) . ' produits');
+            error_log('📊 Produits décodés : ' . (is_array($products) ? count($products) : 'ERREUR') . ' produits');
 
             if (!is_array($products) || empty($products)) {
+                error_log('❌ Produits invalides ou vides');
                 wp_send_json_error(['message' => __('Données de produits invalides.', 'sempa')], 400);
             }
 
+            error_log('📍 Étape 5: Initialisation de la base de données');
             $db = Sempa_Stocks_DB::instance();
+            error_log('✅ Instance DB créée');
+
             $table = Sempa_Stocks_DB::table('stocks_sempa');
+            error_log('✅ Table: ' . $table);
 
             $success_count = 0;
             $errors = [];
 
+            error_log('📍 Étape 6: Résolution des colonnes');
             $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
             $reference_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'reference', false) ?: 'reference';
+            error_log('✅ Colonnes: id=' . $id_column . ', reference=' . $reference_column);
 
+            error_log('📍 Étape 7: Traitement des ' . count($products) . ' produits');
             foreach ($products as $index => $product) {
                 try {
+                    error_log("  → Traitement produit #$index");
                     // Valider les données requises
                     if (empty($product['reference'])) {
                         $errors[] = sprintf(__('Ligne %d: Référence manquante', 'sempa'), $index + 2);
@@ -2079,6 +2096,7 @@ final class Sempa_Login_Redirect
                         'etat_materiel' => isset($product['etat_materiel']) ? sanitize_text_field($product['etat_materiel']) : 'neuf',
                     ];
 
+                    error_log("  → Recherche produit existant: " . $data['reference']);
                     // Vérifier si le produit existe déjà
                     $existing = $db->get_row(
                         $db->prepare(
@@ -2089,6 +2107,7 @@ final class Sempa_Login_Redirect
                     );
 
                     if ($existing) {
+                        error_log("  → Mise à jour produit existant");
                         // Mettre à jour - normaliser les colonnes
                         $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
                         $modified_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_modification', false);
@@ -2101,14 +2120,18 @@ final class Sempa_Login_Redirect
 
                         if ($updated !== false) {
                             $success_count++;
+                            error_log("  ✅ Produit mis à jour");
                         } else {
-                            $errors[] = sprintf(
+                            $error_msg = sprintf(
                                 __('Ligne %d: Erreur mise à jour produit %s', 'sempa'),
                                 $index + 2,
                                 $data['reference']
                             );
+                            $errors[] = $error_msg;
+                            error_log("  ❌ " . $error_msg);
                         }
                     } else {
+                        error_log("  → Insertion nouveau produit");
                         // Insérer - normaliser les colonnes
                         $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
                         $date_creation_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_entree', false);
@@ -2120,31 +2143,50 @@ final class Sempa_Login_Redirect
 
                         if ($inserted) {
                             $success_count++;
+                            error_log("  ✅ Produit inséré");
                         } else {
-                            $errors[] = sprintf(
+                            $error_msg = sprintf(
                                 __('Ligne %d: Erreur insertion produit %s', 'sempa'),
                                 $index + 2,
                                 $data['reference']
                             );
+                            $errors[] = $error_msg;
+                            error_log("  ❌ " . $error_msg);
                         }
                     }
                 } catch (Exception $e) {
-                    $errors[] = sprintf(
+                    $error_msg = sprintf(
                         __('Ligne %d: %s', 'sempa'),
                         $index + 2,
                         $e->getMessage()
                     );
+                    $errors[] = $error_msg;
+                    error_log("  ❌ Exception: " . $e->getMessage());
                 }
             }
 
+            error_log('📍 Étape 8: Envoi réponse succès');
+            error_log("✅ Import terminé: $success_count/$" . count($products) . " produits importés");
             wp_send_json_success([
                 'success_count' => $success_count,
                 'errors' => $errors,
                 'total' => count($products)
             ]);
         } catch (Exception $e) {
-            error_log('❌ Erreur dans ajax_import_csv : ' . $e->getMessage());
-            error_log('❌ Stack trace : ' . $e->getTraceAsString());
+            error_log('========================================');
+            error_log('❌ ERREUR FATALE dans ajax_import_csv');
+            error_log('Message: ' . $e->getMessage());
+            error_log('Fichier: ' . $e->getFile() . ':' . $e->getLine());
+            error_log('Stack trace: ' . $e->getTraceAsString());
+            error_log('========================================');
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
+        } catch (Throwable $e) {
+            error_log('========================================');
+            error_log('❌ ERREUR THROWABLE dans ajax_import_csv');
+            error_log('Message: ' . $e->getMessage());
+            error_log('Fichier: ' . $e->getFile() . ':' . $e->getLine());
+            error_log('Stack trace: ' . $e->getTraceAsString());
+            error_log('========================================');
             wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
     }
