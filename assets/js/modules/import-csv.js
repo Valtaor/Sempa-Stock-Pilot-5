@@ -368,6 +368,7 @@ class ImportCSVModule {
 
       const response = await fetch(window.SempaStocksData.ajaxUrl, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
