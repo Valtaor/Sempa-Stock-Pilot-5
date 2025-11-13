@@ -2030,119 +2030,120 @@ final class Sempa_Login_Redirect
 
             $products = json_decode($products_json, true);
             error_log('📊 Produits décodés : ' . count($products) . ' produits');
+
+            if (!is_array($products) || empty($products)) {
+                wp_send_json_error(['message' => __('Données de produits invalides.', 'sempa')], 400);
+            }
+
+            $db = Sempa_Stocks_DB::instance();
+            $table = Sempa_Stocks_DB::table('stocks_sempa');
+
+            $success_count = 0;
+            $errors = [];
+
+            $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+            $reference_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'reference', false) ?: 'reference';
+
+            foreach ($products as $index => $product) {
+                try {
+                    // Valider les données requises
+                    if (empty($product['reference'])) {
+                        $errors[] = sprintf(__('Ligne %d: Référence manquante', 'sempa'), $index + 2);
+                        continue;
+                    }
+
+                    if (empty($product['designation'])) {
+                        $errors[] = sprintf(__('Ligne %d: Désignation manquante', 'sempa'), $index + 2);
+                        continue;
+                    }
+
+                    // Préparer les données (support de plusieurs formats de colonnes)
+                    $data = [
+                        'reference' => sanitize_text_field($product['reference']),
+                        'designation' => sanitize_text_field($product['designation']),
+                        'stock_actuel' => isset($product['stock_actuel']) && $product['stock_actuel'] !== '' ? intval($product['stock_actuel']) : 0,
+                        'stock_minimum' => isset($product['stock_minimum']) && $product['stock_minimum'] !== '' ? intval($product['stock_minimum']) :
+                                           (isset($product['stock_min']) && $product['stock_min'] !== '' ? intval($product['stock_min']) : 0),
+                        'stock_maximum' => isset($product['stock_maximum']) && $product['stock_maximum'] !== '' ? intval($product['stock_maximum']) : 0,
+                        'prix_achat' => isset($product['prix_achat']) && $product['prix_achat'] !== '' ? floatval($product['prix_achat']) :
+                                        (isset($product['prix_unitaire']) && $product['prix_unitaire'] !== '' ? floatval($product['prix_unitaire']) : 0),
+                        'prix_vente' => isset($product['prix_vente']) && $product['prix_vente'] !== '' ? floatval($product['prix_vente']) : 0,
+                        'categorie' => isset($product['categorie']) ? sanitize_text_field($product['categorie']) : '',
+                        'fournisseur' => isset($product['fournisseur']) ? sanitize_text_field($product['fournisseur']) : '',
+                        'emplacement' => isset($product['emplacement']) ? sanitize_text_field($product['emplacement']) : '',
+                        'notes' => isset($product['notes']) ? sanitize_textarea_field($product['notes']) :
+                                   (isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) : ''),
+                        'etat_materiel' => isset($product['etat_materiel']) ? sanitize_text_field($product['etat_materiel']) : 'neuf',
+                    ];
+
+                    // Vérifier si le produit existe déjà
+                    $existing = $db->get_row(
+                        $db->prepare(
+                            'SELECT ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($reference_column) . ' = %s',
+                            $data['reference']
+                        ),
+                        ARRAY_A
+                    );
+
+                    if ($existing) {
+                        // Mettre à jour - normaliser les colonnes
+                        $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
+                        $modified_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_modification', false);
+                        if ($modified_column) {
+                            $normalized_data[$modified_column] = current_time('mysql');
+                        }
+
+                        $where = [$id_column => $existing[$id_column]];
+                        $updated = $db->update($table, $normalized_data, $where);
+
+                        if ($updated !== false) {
+                            $success_count++;
+                        } else {
+                            $errors[] = sprintf(
+                                __('Ligne %d: Erreur mise à jour produit %s', 'sempa'),
+                                $index + 2,
+                                $data['reference']
+                            );
+                        }
+                    } else {
+                        // Insérer - normaliser les colonnes
+                        $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
+                        $date_creation_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_entree', false);
+                        if ($date_creation_column) {
+                            $normalized_data[$date_creation_column] = current_time('mysql');
+                        }
+
+                        $inserted = $db->insert($table, $normalized_data);
+
+                        if ($inserted) {
+                            $success_count++;
+                        } else {
+                            $errors[] = sprintf(
+                                __('Ligne %d: Erreur insertion produit %s', 'sempa'),
+                                $index + 2,
+                                $data['reference']
+                            );
+                        }
+                    }
+                } catch (Exception $e) {
+                    $errors[] = sprintf(
+                        __('Ligne %d: %s', 'sempa'),
+                        $index + 2,
+                        $e->getMessage()
+                    );
+                }
+            }
+
+            wp_send_json_success([
+                'success_count' => $success_count,
+                'errors' => $errors,
+                'total' => count($products)
+            ]);
         } catch (Exception $e) {
             error_log('❌ Erreur dans ajax_import_csv : ' . $e->getMessage());
+            error_log('❌ Stack trace : ' . $e->getTraceAsString());
             wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
-
-        if (!is_array($products) || empty($products)) {
-            wp_send_json_error(['message' => __('Données de produits invalides.', 'sempa')], 400);
-        }
-
-        $db = Sempa_Stocks_DB::instance();
-        $table = Sempa_Stocks_DB::table('stocks_sempa');
-
-        $success_count = 0;
-        $errors = [];
-
-        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
-        $reference_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'reference', false) ?: 'reference';
-
-        foreach ($products as $index => $product) {
-            try {
-                // Valider les données requises
-                if (empty($product['reference'])) {
-                    $errors[] = sprintf(__('Ligne %d: Référence manquante', 'sempa'), $index + 2);
-                    continue;
-                }
-
-                if (empty($product['designation'])) {
-                    $errors[] = sprintf(__('Ligne %d: Désignation manquante', 'sempa'), $index + 2);
-                    continue;
-                }
-
-                // Préparer les données (support de plusieurs formats de colonnes)
-                $data = [
-                    'reference' => sanitize_text_field($product['reference']),
-                    'designation' => sanitize_text_field($product['designation']),
-                    'stock_actuel' => isset($product['stock_actuel']) && $product['stock_actuel'] !== '' ? intval($product['stock_actuel']) : 0,
-                    'stock_minimum' => isset($product['stock_minimum']) && $product['stock_minimum'] !== '' ? intval($product['stock_minimum']) :
-                                       (isset($product['stock_min']) && $product['stock_min'] !== '' ? intval($product['stock_min']) : 0),
-                    'stock_maximum' => isset($product['stock_maximum']) && $product['stock_maximum'] !== '' ? intval($product['stock_maximum']) : 0,
-                    'prix_achat' => isset($product['prix_achat']) && $product['prix_achat'] !== '' ? floatval($product['prix_achat']) :
-                                    (isset($product['prix_unitaire']) && $product['prix_unitaire'] !== '' ? floatval($product['prix_unitaire']) : 0),
-                    'prix_vente' => isset($product['prix_vente']) && $product['prix_vente'] !== '' ? floatval($product['prix_vente']) : 0,
-                    'categorie' => isset($product['categorie']) ? sanitize_text_field($product['categorie']) : '',
-                    'fournisseur' => isset($product['fournisseur']) ? sanitize_text_field($product['fournisseur']) : '',
-                    'emplacement' => isset($product['emplacement']) ? sanitize_text_field($product['emplacement']) : '',
-                    'notes' => isset($product['notes']) ? sanitize_textarea_field($product['notes']) :
-                               (isset($product['commentaire']) ? sanitize_textarea_field($product['commentaire']) : ''),
-                    'etat_materiel' => isset($product['etat_materiel']) ? sanitize_text_field($product['etat_materiel']) : 'neuf',
-                ];
-
-                // Vérifier si le produit existe déjà
-                $existing = $db->get_row(
-                    $db->prepare(
-                        'SELECT ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($reference_column) . ' = %s',
-                        $data['reference']
-                    ),
-                    ARRAY_A
-                );
-
-                if ($existing) {
-                    // Mettre à jour - normaliser les colonnes
-                    $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
-                    $modified_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_modification', false);
-                    if ($modified_column) {
-                        $normalized_data[$modified_column] = current_time('mysql');
-                    }
-
-                    $where = [$id_column => $existing[$id_column]];
-                    $updated = $db->update($table, $normalized_data, $where);
-
-                    if ($updated !== false) {
-                        $success_count++;
-                    } else {
-                        $errors[] = sprintf(
-                            __('Ligne %d: Erreur mise à jour produit %s', 'sempa'),
-                            $index + 2,
-                            $data['reference']
-                        );
-                    }
-                } else {
-                    // Insérer - normaliser les colonnes
-                    $normalized_data = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $data);
-                    $date_creation_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_entree', false);
-                    if ($date_creation_column) {
-                        $normalized_data[$date_creation_column] = current_time('mysql');
-                    }
-
-                    $inserted = $db->insert($table, $normalized_data);
-
-                    if ($inserted) {
-                        $success_count++;
-                    } else {
-                        $errors[] = sprintf(
-                            __('Ligne %d: Erreur insertion produit %s', 'sempa'),
-                            $index + 2,
-                            $data['reference']
-                        );
-                    }
-                }
-            } catch (Exception $e) {
-                $errors[] = sprintf(
-                    __('Ligne %d: %s', 'sempa'),
-                    $index + 2,
-                    $e->getMessage()
-                );
-            }
-        }
-
-        wp_send_json_success([
-            'success_count' => $success_count,
-            'errors' => $errors,
-            'total' => count($products)
-        ]);
     }
 
     /**
