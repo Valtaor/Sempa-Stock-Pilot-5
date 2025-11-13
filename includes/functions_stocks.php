@@ -29,6 +29,7 @@ final class Sempa_Stocks_App
         add_action('wp_ajax_sempa_stocks_movements', [__CLASS__, 'ajax_movements']);
         add_action('wp_ajax_sempa_stocks_record_movement', [__CLASS__, 'ajax_record_movement']);
         add_action('wp_ajax_sempa_stocks_export_csv', [__CLASS__, 'ajax_export_csv']);
+        add_action('wp_ajax_sempa_stocks_import_csv', [__CLASS__, 'ajax_import_csv']);
         add_action('wp_ajax_sempa_stocks_reference_data', [__CLASS__, 'ajax_reference_data']);
         add_action('wp_ajax_sempa_stocks_save_category', [__CLASS__, 'ajax_save_category']);
         add_action('wp_ajax_sempa_stocks_save_supplier', [__CLASS__, 'ajax_save_supplier']);
