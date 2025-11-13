@@ -360,6 +360,12 @@ class ImportCSVModule {
     confirmBtn.innerHTML = '<i data-lucide="loader"></i> Import en cours...';
 
     try {
+      console.log('📤 Envoi requête AJAX:', {
+        action: 'sempa_stocks_import_csv',
+        nonce: window.SempaStocksData.nonce,
+        productsCount: this.parsedData.length
+      });
+
       const response = await fetch(window.SempaStocksData.ajaxUrl, {
         method: 'POST',
         headers: {
@@ -372,7 +378,23 @@ class ImportCSVModule {
         })
       });
 
-      const result = await response.json();
+      console.log('📥 Réponse reçue:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers.get('content-type')
+      });
+
+      const responseText = await response.text();
+      console.log('📄 Réponse brute (100 premiers caractères):', responseText.substring(0, 100));
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('❌ Erreur parsing JSON:', jsonError);
+        console.error('📄 Réponse complète:', responseText);
+        throw new Error('Le serveur n\'a pas renvoyé de JSON valide');
+      }
 
       if (result.success) {
         this.showResults(result.data);
