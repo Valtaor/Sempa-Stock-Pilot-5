@@ -2027,7 +2027,7 @@ final class Sempa_Login_Redirect
         }
 
         $db = Sempa_Stocks_DB::instance();
-        $table = Sempa_Stocks_DB::get_table_name('produits_stocks');
+        $table = Sempa_Stocks_DB::table('stocks_sempa');
 
         $success_count = 0;
         $errors = [];
