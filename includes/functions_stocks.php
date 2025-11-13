@@ -1636,7 +1636,11 @@ final class Sempa_Stocks_App
             wp_send_json_error(['message' => __('Authentification requise.', 'sempa')], 403);
         }
 
-        check_ajax_referer(self::NONCE_ACTION, 'nonce');
+        // Utiliser false pour éviter die() et gérer l'erreur proprement
+        $nonce_valid = check_ajax_referer(self::NONCE_ACTION, 'nonce', false);
+        if (!$nonce_valid) {
+            wp_send_json_error(['message' => __('Nonce invalide. Veuillez recharger la page.', 'sempa')], 403);
+        }
     }
 
     private static function current_user_allowed()
