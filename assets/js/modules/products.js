@@ -958,7 +958,7 @@ class ProductsModule {
       }
 
       // Validation basique
-      if (!newValue && field !== 'emplacement') {
+      if (!newValue && field !== 'emplacement' && field !== 'notes') {
         alert('La valeur ne peut pas être vide');
         editor.focus();
         return;
@@ -968,8 +968,36 @@ class ProductsModule {
       cell.textContent = '⏳';
 
       try {
-        // Sauvegarder via l'API
-        const updateData = { [field]: newValue };
+        // CORRECTION : Récupérer le produit complet depuis le cache local
+        const fullProduct = this.products.find(p => parseInt(p.id) === productId);
+        if (!fullProduct) {
+          throw new Error('Produit introuvable');
+        }
+
+        // Construire les données complètes avec la modification
+        const updateData = {
+          id: productId,
+          reference: fullProduct.reference,
+          designation: fullProduct.designation,
+          categorie: fullProduct.categorie || '',
+          fournisseur: fullProduct.fournisseur || '',
+          etat_materiel: fullProduct.etat_materiel || 'neuf',
+          prix_achat: fullProduct.prix_achat || 0,
+          prix_vente: fullProduct.prix_vente || 0,
+          stock_actuel: fullProduct.stock_actuel || 0,
+          stock_minimum: fullProduct.stock_minimum || 0,
+          stock_maximum: fullProduct.stock_maximum || 0,
+          emplacement: fullProduct.emplacement || '',
+          date_entree: fullProduct.date_entree || '',
+          notes: fullProduct.notes || '',
+          // Modifier uniquement le champ concerné
+          [field]: newValue
+        };
+
+        console.log('📝 Modification inline:', field, '=', newValue);
+        console.log('📦 Données complètes envoyées:', updateData);
+
+        // Sauvegarder via l'API avec les données complètes
         const apiClient = await this.getApiClient();
         await apiClient.updateProduct(productId, updateData);
 
