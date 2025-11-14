@@ -114,6 +114,7 @@ final class Sempa_Stocks_App
     private static function ensure_database_connected()
     {
         if (!Sempa_Stocks_DB::is_connected()) {
+            if (ob_get_level() > 0) ob_end_clean(); // Nettoyer le buffer de sortie
             wp_send_json_error([
                 'message' => __('La connexion à la base de données est temporairement indisponible. Veuillez réessayer dans quelques instants.', 'sempa'),
                 'code' => 'DB_CONNECTION_FAILED',
@@ -1632,12 +1633,14 @@ final class Sempa_Stocks_App
     private static function ensure_secure_request()
     {
         if (!self::current_user_allowed()) {
+            if (ob_get_level() > 0) ob_end_clean(); // Nettoyer le buffer de sortie
             wp_send_json_error(['message' => __('Authentification requise.', 'sempa')], 403);
         }
 
         // Utiliser false pour éviter die() et gérer l'erreur proprement
         $nonce_valid = check_ajax_referer(self::NONCE_ACTION, 'nonce', false);
         if (!$nonce_valid) {
+            if (ob_get_level() > 0) ob_end_clean(); // Nettoyer le buffer de sortie
             wp_send_json_error(['message' => __('Nonce invalide. Veuillez recharger la page.', 'sempa')], 403);
         }
     }
