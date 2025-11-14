@@ -1929,86 +1929,6 @@ final class Sempa_Stocks_App
 
         return false;
     }
-}
-
-final class Sempa_Stocks_Login
-{
-    public static function register()
-    {
-        add_action('login_enqueue_scripts', [__CLASS__, 'enqueue_styles']);
-        add_filter('login_message', [__CLASS__, 'login_message']);
-        add_filter('login_headerurl', [__CLASS__, 'login_url']);
-        add_filter('login_headertext', [__CLASS__, 'login_title']);
-    }
-
-    public static function enqueue_styles()
-    {
-        $css = 'body.login {background: #f8f8f8;} .login h1 a {background-image: none !important; font-size: 32px; font-weight: 700; color: #f4a412 !important; text-indent: 0; width: auto;} .login form {border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #f4a41233;} .login #backtoblog a, .login #nav a {color: #f4a412;} .wp-core-ui .button-primary {background: #f4a412; border-color: #f4a412; text-shadow: none; box-shadow: none;} .wp-core-ui .button-primary:hover {background: #d98f0f; border-color: #d98f0f;} .login-message {text-align: center; background: #ffffff; padding: 16px; border-radius: 8px; border-left: 4px solid #f4a412; color: #333;}';
-        wp_enqueue_style('sempa-login-styles', false);
-        wp_add_inline_style('sempa-login-styles', $css);
-    }
-
-    public static function login_message($message)
-    {
-        $greeting = '<p class="login-message">' . esc_html__('Bienvenue sur la plateforme de gestion des stocks SEMPA. Connectez-vous avec vos identifiants WordPress pour accéder à l\'application.', 'sempa') . '</p>';
-        return $greeting . $message;
-    }
-
-    public static function login_url()
-    {
-        return home_url('/stock-pilot');
-    }
-
-    public static function login_title()
-    {
-        return 'SEMPA';
-    }
-}
-
-/**
- * Gère les redirections pour l'accès à l'application de gestion des stocks
- *
- * @since 2.0.0
- */
-final class Sempa_Login_Redirect
-{
-    /**
-     * Enregistre les hooks nécessaires pour gérer les redirections
-     */
-    public static function register()
-    {
-        add_action('template_redirect', [__CLASS__, 'handle_stock_pilot_redirect']);
-        add_filter('login_redirect', [__CLASS__, 'redirect_after_login'], 10, 3);
-    }
-
-    /**
-     * Redirige l'ancienne URL /stocks vers la nouvelle /stock-pilot
-     * Corrige le problème de redirection pour les ayants droits
-     */
-    public static function handle_stock_pilot_redirect()
-    {
-        // Récupérer l'URI de la requête
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
-
-        // Nettoyer l'URI (enlever les query strings)
-        $path = parse_url($request_uri, PHP_URL_PATH);
-
-        // Normaliser le chemin (enlever les slashes de début et fin)
-        $path = trim($path, '/');
-
-        // Rediriger l'ancienne URL /stocks vers la nouvelle /stock-pilot
-        if ($path === 'stocks' || strpos($path, 'stocks/') === 0) {
-            wp_safe_redirect(home_url('/stock-pilot/'), 301);
-            exit;
-        }
-
-        // Alternative : vérifier aussi si WordPress détecte la page stocks
-        if (is_page('stocks')) {
-            wp_safe_redirect(home_url('/stock-pilot/'), 301);
-            exit;
-        }
-    }
-
     /**
      * AJAX: Importer des produits depuis CSV
      */
@@ -2210,6 +2130,86 @@ final class Sempa_Login_Redirect
             wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
     }
+}
+
+final class Sempa_Stocks_Login
+{
+    public static function register()
+    {
+        add_action('login_enqueue_scripts', [__CLASS__, 'enqueue_styles']);
+        add_filter('login_message', [__CLASS__, 'login_message']);
+        add_filter('login_headerurl', [__CLASS__, 'login_url']);
+        add_filter('login_headertext', [__CLASS__, 'login_title']);
+    }
+
+    public static function enqueue_styles()
+    {
+        $css = 'body.login {background: #f8f8f8;} .login h1 a {background-image: none !important; font-size: 32px; font-weight: 700; color: #f4a412 !important; text-indent: 0; width: auto;} .login form {border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #f4a41233;} .login #backtoblog a, .login #nav a {color: #f4a412;} .wp-core-ui .button-primary {background: #f4a412; border-color: #f4a412; text-shadow: none; box-shadow: none;} .wp-core-ui .button-primary:hover {background: #d98f0f; border-color: #d98f0f;} .login-message {text-align: center; background: #ffffff; padding: 16px; border-radius: 8px; border-left: 4px solid #f4a412; color: #333;}';
+        wp_enqueue_style('sempa-login-styles', false);
+        wp_add_inline_style('sempa-login-styles', $css);
+    }
+
+    public static function login_message($message)
+    {
+        $greeting = '<p class="login-message">' . esc_html__('Bienvenue sur la plateforme de gestion des stocks SEMPA. Connectez-vous avec vos identifiants WordPress pour accéder à l\'application.', 'sempa') . '</p>';
+        return $greeting . $message;
+    }
+
+    public static function login_url()
+    {
+        return home_url('/stock-pilot');
+    }
+
+    public static function login_title()
+    {
+        return 'SEMPA';
+    }
+}
+
+/**
+ * Gère les redirections pour l'accès à l'application de gestion des stocks
+ *
+ * @since 2.0.0
+ */
+final class Sempa_Login_Redirect
+{
+    /**
+     * Enregistre les hooks nécessaires pour gérer les redirections
+     */
+    public static function register()
+    {
+        add_action('template_redirect', [__CLASS__, 'handle_stock_pilot_redirect']);
+        add_filter('login_redirect', [__CLASS__, 'redirect_after_login'], 10, 3);
+    }
+
+    /**
+     * Redirige l'ancienne URL /stocks vers la nouvelle /stock-pilot
+     * Corrige le problème de redirection pour les ayants droits
+     */
+    public static function handle_stock_pilot_redirect()
+    {
+        // Récupérer l'URI de la requête
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+
+        // Nettoyer l'URI (enlever les query strings)
+        $path = parse_url($request_uri, PHP_URL_PATH);
+
+        // Normaliser le chemin (enlever les slashes de début et fin)
+        $path = trim($path, '/');
+
+        // Rediriger l'ancienne URL /stocks vers la nouvelle /stock-pilot
+        if ($path === 'stocks' || strpos($path, 'stocks/') === 0) {
+            wp_safe_redirect(home_url('/stock-pilot/'), 301);
+            exit;
+        }
+
+        // Alternative : vérifier aussi si WordPress détecte la page stocks
+        if (is_page('stocks')) {
+            wp_safe_redirect(home_url('/stock-pilot/'), 301);
+            exit;
+        }
+    }
+
 
     /**
      * Redirige les utilisateurs autorisés vers la page de stocks après connexion
