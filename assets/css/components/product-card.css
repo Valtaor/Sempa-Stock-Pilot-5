@@ -235,6 +235,21 @@
   white-space: nowrap;
 }
 
+/* État du matériel (neuf/reconditionné) */
+.sp-product-card__meta-item--condition {
+  font-weight: 600;
+  color: var(--sp-text-primary);
+}
+
+.sp-product-card__meta-item--condition svg {
+  color: var(--sp-primary-500);
+}
+
+.sp-product-card__condition {
+  font-weight: 600;
+  color: var(--sp-primary-600);
+}
+
 /* Stats (stock, prix) */
 .sp-product-card__stats {
   display: grid;

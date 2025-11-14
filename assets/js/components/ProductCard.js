@@ -108,6 +108,13 @@ class ProductCard {
         </div>
 
         <div class="sp-product-card__meta">
+          ${product.etat_materiel ? `
+            <div class="sp-product-card__meta-item sp-product-card__meta-item--condition">
+              <i data-lucide="${product.etat_materiel === 'neuf' ? 'sparkles' : 'recycle'}"></i>
+              <span class="sp-product-card__condition">${product.etat_materiel === 'neuf' ? 'Neuf' : 'Reconditionné'}</span>
+            </div>
+          ` : ''}
+
           ${product.categorie ? `
             <div class="sp-product-card__meta-item">
               <i data-lucide="folder"></i>
