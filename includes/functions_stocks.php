@@ -324,149 +324,169 @@ final class Sempa_Stocks_App
 
     public static function ajax_save_product()
     {
-        self::ensure_secure_request();
-        self::ensure_database_connected();
+        // Capturer toute sortie parasite (warnings, notices, etc.)
+        ob_start();
 
-        $data = self::read_request_body();
-        $db = Sempa_Stocks_DB::instance();
-        $user = wp_get_current_user();
-        $id = isset($data['id']) ? absint($data['id']) : 0;
+        try {
+            self::ensure_secure_request();
+            self::ensure_database_connected();
 
-        // Check database connection
-        if (!($db instanceof \wpdb) || empty($db->dbh)) {
-            wp_send_json_error(['message' => __('Impossible de se connecter à la base de données.', 'sempa')], 500);
-        }
+            $data = self::read_request_body();
+            $db = Sempa_Stocks_DB::instance();
+            $user = wp_get_current_user();
+            $id = isset($data['id']) ? absint($data['id']) : 0;
 
-        if (!Sempa_Stocks_DB::table_exists('stocks_sempa')) {
-            wp_send_json_error(['message' => __('La table des stocks est indisponible.', 'sempa')], 500);
-        }
-
-        $payload = [
-            'reference' => sanitize_text_field($data['reference'] ?? ''),
-            'designation' => sanitize_text_field($data['designation'] ?? ''),
-            'categorie' => sanitize_text_field($data['categorie'] ?? ''),
-            'fournisseur' => sanitize_text_field($data['fournisseur'] ?? ''),
-            'etat_materiel' => in_array($data['etat_materiel'] ?? '', ['neuf', 'reconditionné'], true) ? $data['etat_materiel'] : 'neuf',
-            'prix_achat' => self::sanitize_decimal($data['prix_achat'] ?? 0),
-            'prix_vente' => self::sanitize_decimal($data['prix_vente'] ?? 0),
-            'stock_actuel' => isset($data['stock_actuel']) ? (int) $data['stock_actuel'] : 0,
-            'stock_minimum' => isset($data['stock_minimum']) ? (int) $data['stock_minimum'] : 0,
-            'stock_maximum' => isset($data['stock_maximum']) ? (int) $data['stock_maximum'] : 0,
-            'emplacement' => sanitize_text_field($data['emplacement'] ?? ''),
-            'date_entree' => self::sanitize_date($data['date_entree'] ?? ''),
-            'notes' => sanitize_textarea_field($data['notes'] ?? ''),
-            'ajoute_par' => $user->user_email,
-        ];
-
-        if ($payload['reference'] === '' || $payload['designation'] === '') {
-            wp_send_json_error([
-                'message' => __('La référence et la désignation sont obligatoires.', 'sempa'),
-            ], 400);
-        }
-
-        $upload_path = self::maybe_handle_upload($id);
-        if ($upload_path) {
-            $payload['document_pdf'] = $upload_path;
-        }
-
-        // Gérer l'upload de l'image du produit
-        $image_url = self::maybe_handle_image_upload($id);
-        if ($image_url) {
-            $payload['image_url'] = $image_url;
-        }
-
-        // Gérer la suppression de l'image
-        if (isset($data['remove_image']) && $data['remove_image'] === '1') {
-            $payload['image_url'] = '';
-        }
-
-        if ($id <= 0 && empty($payload['date_entree'])) {
-            $payload['date_entree'] = wp_date('Y-m-d');
-        }
-
-        $table = Sempa_Stocks_DB::table('stocks_sempa');
-        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
-
-        // Variables pour l'audit
-        $old_product = null;
-        $action = '';
-
-        if ($id > 0) {
-            // UPDATE: Récupérer l'ancien produit pour l'audit
-            $old_product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
-            $action = 'updated';
-
-            // Ajouter audit trail pour modification
-            $payload['modified_by'] = $user->ID;
-            $payload['modified_at'] = current_time('mysql');
-
-            $normalized_payload = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $payload);
-            $modified_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_modification', false);
-            if ($modified_column) {
-                $normalized_payload[$modified_column] = current_time('mysql');
+            // Check database connection
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('Impossible de se connecter à la base de données.', 'sempa')], 500);
             }
 
-            if (empty($normalized_payload)) {
-                wp_send_json_error(['message' => __('Aucune donnée valide à mettre à jour.', 'sempa')], 400);
+            if (!Sempa_Stocks_DB::table_exists('stocks_sempa')) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('La table des stocks est indisponible.', 'sempa')], 500);
             }
 
-            $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
-            if (empty($where)) {
-                wp_send_json_error(['message' => __('Identifiant de produit introuvable dans la base.', 'sempa')], 400);
+            $payload = [
+                'reference' => sanitize_text_field($data['reference'] ?? ''),
+                'designation' => sanitize_text_field($data['designation'] ?? ''),
+                'categorie' => sanitize_text_field($data['categorie'] ?? ''),
+                'fournisseur' => sanitize_text_field($data['fournisseur'] ?? ''),
+                'etat_materiel' => in_array($data['etat_materiel'] ?? '', ['neuf', 'reconditionné'], true) ? $data['etat_materiel'] : 'neuf',
+                'prix_achat' => self::sanitize_decimal($data['prix_achat'] ?? 0),
+                'prix_vente' => self::sanitize_decimal($data['prix_vente'] ?? 0),
+                'stock_actuel' => isset($data['stock_actuel']) ? (int) $data['stock_actuel'] : 0,
+                'stock_minimum' => isset($data['stock_minimum']) ? (int) $data['stock_minimum'] : 0,
+                'stock_maximum' => isset($data['stock_maximum']) ? (int) $data['stock_maximum'] : 0,
+                'emplacement' => sanitize_text_field($data['emplacement'] ?? ''),
+                'date_entree' => self::sanitize_date($data['date_entree'] ?? ''),
+                'notes' => sanitize_textarea_field($data['notes'] ?? ''),
+                'ajoute_par' => $user->user_email,
+            ];
+
+            if ($payload['reference'] === '' || $payload['designation'] === '') {
+                ob_end_clean();
+                wp_send_json_error([
+                    'message' => __('La référence et la désignation sont obligatoires.', 'sempa'),
+                ], 400);
             }
 
-            $updated = $db->update($table, $normalized_payload, $where);
-            if ($updated === false) {
-                wp_send_json_error(['message' => $db->last_error ?: __('Impossible de mettre à jour le produit.', 'sempa')], 500);
-            }
-        } else {
-            // INSERT: Ajouter audit trail pour création
-            $action = 'created';
-            $payload['created_by'] = $user->ID;
-            $payload['created_at'] = current_time('mysql');
-
-            $normalized_payload = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $payload);
-
-            if (empty($normalized_payload)) {
-                wp_send_json_error(['message' => __('Aucune donnée valide à enregistrer.', 'sempa')], 400);
+            $upload_path = self::maybe_handle_upload($id);
+            if ($upload_path) {
+                $payload['document_pdf'] = $upload_path;
             }
 
-            $inserted = $db->insert($table, $normalized_payload);
-            if ($inserted === false) {
-                wp_send_json_error(['message' => $db->last_error ?: __('Impossible d\'ajouter le produit.', 'sempa')], 500);
+            // Gérer l'upload de l'image du produit
+            $image_url = self::maybe_handle_image_upload($id);
+            if ($image_url) {
+                $payload['image_url'] = $image_url;
             }
-            $id = (int) $db->insert_id;
+
+            // Gérer la suppression de l'image
+            if (isset($data['remove_image']) && $data['remove_image'] === '1') {
+                $payload['image_url'] = '';
+            }
+
+            if ($id <= 0 && empty($payload['date_entree'])) {
+                $payload['date_entree'] = wp_date('Y-m-d');
+            }
+
+            $table = Sempa_Stocks_DB::table('stocks_sempa');
+            $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+
+            // Variables pour l'audit
+            $old_product = null;
+            $action = '';
+
+            if ($id > 0) {
+                // UPDATE: Récupérer l'ancien produit pour l'audit
+                $old_product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
+                $action = 'updated';
+
+                // Ajouter audit trail pour modification
+                $payload['modified_by'] = $user->ID;
+                $payload['modified_at'] = current_time('mysql');
+
+                $normalized_payload = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $payload);
+                $modified_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'date_modification', false);
+                if ($modified_column) {
+                    $normalized_payload[$modified_column] = current_time('mysql');
+                }
+
+                if (empty($normalized_payload)) {
+                    ob_end_clean();
+                    wp_send_json_error(['message' => __('Aucune donnée valide à mettre à jour.', 'sempa')], 400);
+                }
+
+                $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
+                if (empty($where)) {
+                    ob_end_clean();
+                    wp_send_json_error(['message' => __('Identifiant de produit introuvable dans la base.', 'sempa')], 400);
+                }
+
+                $updated = $db->update($table, $normalized_payload, $where);
+                if ($updated === false) {
+                    ob_end_clean();
+                    wp_send_json_error(['message' => $db->last_error ?: __('Impossible de mettre à jour le produit.', 'sempa')], 500);
+                }
+            } else {
+                // INSERT: Ajouter audit trail pour création
+                $action = 'created';
+                $payload['created_by'] = $user->ID;
+                $payload['created_at'] = current_time('mysql');
+
+                $normalized_payload = Sempa_Stocks_DB::normalize_columns('stocks_sempa', $payload);
+
+                if (empty($normalized_payload)) {
+                    ob_end_clean();
+                    wp_send_json_error(['message' => __('Aucune donnée valide à enregistrer.', 'sempa')], 400);
+                }
+
+                $inserted = $db->insert($table, $normalized_payload);
+                if ($inserted === false) {
+                    ob_end_clean();
+                    wp_send_json_error(['message' => $db->last_error ?: __('Impossible d\'ajouter le produit.', 'sempa')], 500);
+                }
+                $id = (int) $db->insert_id;
+            }
+
+            // Récupérer le produit final
+            $product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
+
+            // Logger l'action dans l'audit
+            if (class_exists('Sempa_Audit_Logger')) {
+                error_log('🔍 AUDIT LOG - Tentative de logging: ' . json_encode([
+                    'entity_type' => 'product',
+                    'entity_id' => $id,
+                    'action' => $action,
+                    'has_old_product' => $old_product !== null,
+                    'has_new_product' => $product !== null,
+                ]));
+
+                $log_result = Sempa_Audit_Logger::log(
+                    'product',
+                    $id,
+                    $action,
+                    $old_product ? self::format_product($old_product) : null,
+                    self::format_product($product ?: [])
+                );
+
+                error_log('✅ AUDIT LOG - Résultat: ' . ($log_result ? 'SUCCESS' : 'FAILED'));
+            } else {
+                error_log('❌ AUDIT LOG - Classe Sempa_Audit_Logger non disponible');
+            }
+
+            ob_end_clean();
+            wp_send_json_success([
+                'product' => self::format_product($product ?: []),
+            ]);
+        } catch (Exception $e) {
+            ob_end_clean();
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
+        } catch (Throwable $e) {
+            ob_end_clean();
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
-
-        // Récupérer le produit final
-        $product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
-
-        // Logger l'action dans l'audit
-        if (class_exists('Sempa_Audit_Logger')) {
-            error_log('🔍 AUDIT LOG - Tentative de logging: ' . json_encode([
-                'entity_type' => 'product',
-                'entity_id' => $id,
-                'action' => $action,
-                'has_old_product' => $old_product !== null,
-                'has_new_product' => $product !== null,
-            ]));
-
-            $log_result = Sempa_Audit_Logger::log(
-                'product',
-                $id,
-                $action,
-                $old_product ? self::format_product($old_product) : null,
-                self::format_product($product ?: [])
-            );
-
-            error_log('✅ AUDIT LOG - Résultat: ' . ($log_result ? 'SUCCESS' : 'FAILED'));
-        } else {
-            error_log('❌ AUDIT LOG - Classe Sempa_Audit_Logger non disponible');
-        }
-
-        wp_send_json_success([
-            'product' => self::format_product($product ?: []),
-        ]);
     }
 
     public static function ajax_delete_product()
