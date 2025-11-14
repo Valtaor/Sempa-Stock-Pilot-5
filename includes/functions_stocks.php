@@ -2180,7 +2180,7 @@ final class Sempa_Login_Redirect
             }
 
             error_log('📍 Étape 8: Envoi réponse succès');
-            error_log("✅ Import terminé: $success_count/$" . count($products) . " produits importés");
+            error_log("✅ Import terminé: $success_count/" . count($products) . " produits importés");
             ob_end_clean(); // Nettoyer toute sortie parasite avant d'envoyer le JSON
             wp_send_json_success([
                 'success_count' => $success_count,
