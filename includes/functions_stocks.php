@@ -471,53 +471,70 @@ final class Sempa_Stocks_App
 
     public static function ajax_delete_product()
     {
-        self::ensure_secure_request();
-        self::ensure_database_connected();
+        // Capturer toute sortie parasite (warnings, notices, etc.)
+        ob_start();
 
-        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
-        if ($id <= 0) {
-            wp_send_json_error(['message' => __('Identifiant invalide.', 'sempa')], 400);
+        try {
+            self::ensure_secure_request();
+            self::ensure_database_connected();
+
+            $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+            if ($id <= 0) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('Identifiant invalide.', 'sempa')], 400);
+            }
+
+            $db = Sempa_Stocks_DB::instance();
+
+            // Check database connection
+            if (!($db instanceof \wpdb) || empty($db->dbh)) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('Impossible de se connecter à la base de données.', 'sempa')], 500);
+            }
+
+            if (!Sempa_Stocks_DB::table_exists('stocks_sempa')) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('La table des stocks est indisponible.', 'sempa')], 500);
+            }
+
+            $table = Sempa_Stocks_DB::table('stocks_sempa');
+            $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+
+            // Récupérer le produit avant suppression pour l'audit
+            $product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
+
+            $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
+            if (empty($where)) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('Identifiant de produit introuvable dans la base.', 'sempa')], 400);
+            }
+
+            $deleted = $db->delete($table, $where);
+            if ($deleted === false) {
+                ob_end_clean();
+                wp_send_json_error(['message' => $db->last_error ?: __('Impossible de supprimer le produit.', 'sempa')], 500);
+            }
+
+            // Logger la suppression dans l'audit
+            if (class_exists('Sempa_Audit_Logger') && $product) {
+                Sempa_Audit_Logger::log(
+                    'product',
+                    $id,
+                    'deleted',
+                    self::format_product($product),
+                    null
+                );
+            }
+
+            ob_end_clean();
+            wp_send_json_success();
+        } catch (Exception $e) {
+            ob_end_clean();
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
+        } catch (Throwable $e) {
+            ob_end_clean();
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
-
-        $db = Sempa_Stocks_DB::instance();
-
-        // Check database connection
-        if (!($db instanceof \wpdb) || empty($db->dbh)) {
-            wp_send_json_error(['message' => __('Impossible de se connecter à la base de données.', 'sempa')], 500);
-        }
-
-        if (!Sempa_Stocks_DB::table_exists('stocks_sempa')) {
-            wp_send_json_error(['message' => __('La table des stocks est indisponible.', 'sempa')], 500);
-        }
-
-        $table = Sempa_Stocks_DB::table('stocks_sempa');
-        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
-
-        // Récupérer le produit avant suppression pour l'audit
-        $product = $db->get_row($db->prepare('SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d', $id), ARRAY_A);
-
-        $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
-        if (empty($where)) {
-            wp_send_json_error(['message' => __('Identifiant de produit introuvable dans la base.', 'sempa')], 400);
-        }
-
-        $deleted = $db->delete($table, $where);
-        if ($deleted === false) {
-            wp_send_json_error(['message' => $db->last_error ?: __('Impossible de supprimer le produit.', 'sempa')], 500);
-        }
-
-        // Logger la suppression dans l'audit
-        if (class_exists('Sempa_Audit_Logger') && $product) {
-            Sempa_Audit_Logger::log(
-                'product',
-                $id,
-                'deleted',
-                self::format_product($product),
-                null
-            );
-        }
-
-        wp_send_json_success();
     }
 
     /**
@@ -722,84 +739,97 @@ final class Sempa_Stocks_App
      */
     public static function ajax_bulk_delete()
     {
-        self::ensure_secure_request();
-        self::ensure_database_connected();
+        // Capturer toute sortie parasite (warnings, notices, etc.)
+        ob_start();
 
-        // Récupérer les IDs
-        $ids = isset($_POST['ids']) ? array_map('absint', (array) $_POST['ids']) : [];
+        try {
+            self::ensure_secure_request();
+            self::ensure_database_connected();
 
-        if (empty($ids)) {
-            wp_send_json_error(['message' => __('Aucun produit sélectionné.', 'sempa')], 400);
-        }
+            // Récupérer les IDs
+            $ids = isset($_POST['ids']) ? array_map('absint', (array) $_POST['ids']) : [];
 
-        $db = Sempa_Stocks_DB::instance();
-        $table = Sempa_Stocks_DB::table('stocks_sempa');
-        $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
-
-        $success_count = 0;
-        $errors = [];
-
-        foreach ($ids as $id) {
-            if ($id <= 0) continue;
-
-            // Récupérer le produit avant suppression pour l'audit
-            $product = $db->get_row($db->prepare(
-                'SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d',
-                $id
-            ), ARRAY_A);
-
-            if (!$product) {
-                $errors[] = "Produit #$id introuvable";
-                continue;
+            if (empty($ids)) {
+                ob_end_clean();
+                wp_send_json_error(['message' => __('Aucun produit sélectionné.', 'sempa')], 400);
             }
 
-            // Supprimer le produit
-            $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
-            if (empty($where)) {
-                $errors[] = "Impossible de normaliser l'ID pour produit #$id";
-                continue;
+            $db = Sempa_Stocks_DB::instance();
+            $table = Sempa_Stocks_DB::table('stocks_sempa');
+            $id_column = Sempa_Stocks_DB::resolve_column('stocks_sempa', 'id', false) ?: 'id';
+
+            $success_count = 0;
+            $errors = [];
+
+            foreach ($ids as $id) {
+                if ($id <= 0) continue;
+
+                // Récupérer le produit avant suppression pour l'audit
+                $product = $db->get_row($db->prepare(
+                    'SELECT * FROM ' . Sempa_Stocks_DB::escape_identifier($table) . ' WHERE ' . Sempa_Stocks_DB::escape_identifier($id_column) . ' = %d',
+                    $id
+                ), ARRAY_A);
+
+                if (!$product) {
+                    $errors[] = "Produit #$id introuvable";
+                    continue;
+                }
+
+                // Supprimer le produit
+                $where = Sempa_Stocks_DB::normalize_columns('stocks_sempa', ['id' => $id]);
+                if (empty($where)) {
+                    $errors[] = "Impossible de normaliser l'ID pour produit #$id";
+                    continue;
+                }
+
+                $deleted = $db->delete($table, $where);
+
+                if ($deleted === false) {
+                    $errors[] = "Erreur lors de la suppression du produit #$id: " . $db->last_error;
+                    continue;
+                }
+
+                // Logger la suppression dans l'audit
+                if (class_exists('Sempa_Audit_Logger')) {
+                    Sempa_Audit_Logger::log(
+                        'product',
+                        $id,
+                        'bulk_deleted',
+                        self::format_product($product),
+                        null
+                    );
+                }
+
+                $success_count++;
             }
 
-            $deleted = $db->delete($table, $where);
-
-            if ($deleted === false) {
-                $errors[] = "Erreur lors de la suppression du produit #$id: " . $db->last_error;
-                continue;
-            }
-
-            // Logger la suppression dans l'audit
-            if (class_exists('Sempa_Audit_Logger')) {
-                Sempa_Audit_Logger::log(
-                    'product',
-                    $id,
-                    'bulk_deleted',
-                    self::format_product($product),
-                    null
+            // Préparer la réponse
+            ob_end_clean();
+            if ($success_count > 0) {
+                $message = sprintf(
+                    _n('%d produit supprimé avec succès.', '%d produits supprimés avec succès.', $success_count, 'sempa'),
+                    $success_count
                 );
+                if (!empty($errors)) {
+                    $message .= ' ' . sprintf(__('%d erreur(s) rencontrée(s).', 'sempa'), count($errors));
+                }
+                wp_send_json_success([
+                    'message' => $message,
+                    'success_count' => $success_count,
+                    'errors' => $errors
+                ]);
+            } else {
+                wp_send_json_error([
+                    'message' => __('Aucun produit n\'a pu être supprimé.', 'sempa'),
+                    'errors' => $errors
+                ], 400);
             }
-
-            $success_count++;
-        }
-
-        // Préparer la réponse
-        if ($success_count > 0) {
-            $message = sprintf(
-                _n('%d produit supprimé avec succès.', '%d produits supprimés avec succès.', $success_count, 'sempa'),
-                $success_count
-            );
-            if (!empty($errors)) {
-                $message .= ' ' . sprintf(__('%d erreur(s) rencontrée(s).', 'sempa'), count($errors));
-            }
-            wp_send_json_success([
-                'message' => $message,
-                'success_count' => $success_count,
-                'errors' => $errors
-            ]);
-        } else {
-            wp_send_json_error([
-                'message' => __('Aucun produit n\'a pu être supprimé.', 'sempa'),
-                'errors' => $errors
-            ], 400);
+        } catch (Exception $e) {
+            ob_end_clean();
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
+        } catch (Throwable $e) {
+            ob_end_clean();
+            wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
     }
 
