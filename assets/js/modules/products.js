@@ -242,14 +242,44 @@ class ProductsModule {
       });
     }
 
-    // Recherche
+    // Recherche (header)
     const searchInput = document.getElementById('stocks-search');
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
-        this.filters.search = e.target.value.trim().toLowerCase();
+        const value = e.target.value.trim().toLowerCase();
+        this.filters.search = value;
         this.currentPage = 1;
         this.applyFilters();
         this.renderProducts();
+
+        // Synchroniser avec le champ local
+        const localSearchInput = document.getElementById('products-local-search');
+        if (localSearchInput && localSearchInput.value !== value) {
+          localSearchInput.value = value;
+        }
+
+        // Scroller vers la section produits si on a des résultats
+        if (value && this.filteredProducts.length > 0) {
+          this.scrollToProducts();
+        }
+      });
+    }
+
+    // Recherche locale (dans la toolbar produits)
+    const localSearchInput = document.getElementById('products-local-search');
+    if (localSearchInput) {
+      localSearchInput.addEventListener('input', (e) => {
+        const value = e.target.value.trim().toLowerCase();
+        this.filters.search = value;
+        this.currentPage = 1;
+        this.applyFilters();
+        this.renderProducts();
+
+        // Synchroniser avec le champ header
+        const headerSearchInput = document.getElementById('stocks-search');
+        if (headerSearchInput && headerSearchInput.value !== value) {
+          headerSearchInput.value = value;
+        }
       });
     }
 
@@ -880,7 +910,7 @@ class ProductsModule {
 
     // Récupérer la valeur brute (sans formatage)
     let rawValue = originalValue;
-    if (field === 'price_achat' || field === 'price_vente') {
+    if (field === 'prix_achat' || field === 'prix_vente') {
       rawValue = originalValue.replace(/[€\s]/g, '');
     }
 
@@ -890,9 +920,11 @@ class ProductsModule {
     if (field === 'etat_materiel') {
       // Select pour l'état matériel
       editor = document.createElement('select');
+      // rawValue contient "Neuf" ou "Reconditionné" du badge, on doit extraire la valeur réelle
+      const currentValue = rawValue.toLowerCase().includes('neuf') ? 'neuf' : 'reconditionné';
       editor.innerHTML = `
-        <option value="neuf" ${rawValue === 'neuf' ? 'selected' : ''}>Neuf</option>
-        <option value="reconditionne" ${rawValue === 'reconditionné' ? 'selected' : ''}>Reconditionné</option>
+        <option value="neuf" ${currentValue === 'neuf' ? 'selected' : ''}>Neuf</option>
+        <option value="reconditionné" ${currentValue === 'reconditionné' ? 'selected' : ''}>Reconditionné</option>
       `;
     } else {
       // Input pour les autres champs
@@ -900,9 +932,9 @@ class ProductsModule {
       editor.type = this.getInputTypeForField(field);
       editor.value = rawValue;
 
-      if (field === 'price_achat' || field === 'price_vente' || field === 'stock_actuel' || field === 'stock_min' || field === 'stock_max') {
+      if (field === 'prix_achat' || field === 'prix_vente' || field === 'stock_actuel' || field === 'stock_minimum' || field === 'stock_maximum') {
         editor.min = '0';
-        editor.step = field.includes('price') ? '0.01' : '1';
+        editor.step = field.includes('prix') ? '0.01' : '1';
       }
     }
 
@@ -993,11 +1025,11 @@ class ProductsModule {
   getInputTypeForField(field) {
     switch (field) {
       case 'stock_actuel':
-      case 'stock_min':
-      case 'stock_max':
+      case 'stock_minimum':
+      case 'stock_maximum':
         return 'number';
-      case 'price_achat':
-      case 'price_vente':
+      case 'prix_achat':
+      case 'prix_vente':
         return 'number';
       default:
         return 'text';
@@ -1014,10 +1046,14 @@ class ProductsModule {
   displayCellValue(cell, field, value) {
     cell.textContent = '';
 
-    if (field === 'price_achat' || field === 'price_vente') {
+    if (field === 'prix_achat' || field === 'prix_vente') {
       cell.textContent = `${parseFloat(value).toFixed(2)} €`;
     } else if (field === 'etat_materiel') {
-      cell.textContent = value === 'reconditionne' ? 'Reconditionné' : 'Neuf';
+      // Créer le badge
+      const span = document.createElement('span');
+      span.className = `badge badge--${value === 'neuf' ? 'success' : 'info'}`;
+      span.textContent = value === 'neuf' ? 'Neuf' : 'Reconditionné';
+      cell.appendChild(span);
     } else if (field === 'designation') {
       const strong = document.createElement('strong');
       strong.textContent = value;
@@ -1037,11 +1073,13 @@ class ProductsModule {
     const labels = {
       reference: 'Référence',
       designation: 'Désignation',
-      price_achat: 'Prix d\'achat',
-      price_vente: 'Prix de vente',
+      categorie: 'Catégorie',
+      fournisseur: 'Fournisseur',
+      prix_achat: 'Prix d\'achat',
+      prix_vente: 'Prix de vente',
       stock_actuel: 'Stock actuel',
-      stock_min: 'Stock minimum',
-      stock_max: 'Stock maximum',
+      stock_minimum: 'Stock minimum',
+      stock_maximum: 'Stock maximum',
       etat_materiel: 'État matériel',
       emplacement: 'Emplacement'
     };
@@ -1062,6 +1100,9 @@ class ProductsModule {
     // Réinitialiser les champs
     const searchInput = document.getElementById('stocks-search');
     if (searchInput) searchInput.value = '';
+
+    const localSearchInput = document.getElementById('products-local-search');
+    if (localSearchInput) localSearchInput.value = '';
 
     const categoryFilter = document.getElementById('stocks-filter-category');
     if (categoryFilter) categoryFilter.value = '';
@@ -1358,6 +1399,18 @@ class ProductsModule {
    */
   scrollToTop() {
     const container = document.getElementById('view-products');
+    if (container) {
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  /**
+   * Scroll vers la section produits (pour la recherche depuis le header)
+   */
+  scrollToProducts() {
+    const container = this.currentViewType === 'grid'
+      ? document.getElementById('products-grid-container')
+      : document.getElementById('products-table-container');
     if (container) {
       container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
