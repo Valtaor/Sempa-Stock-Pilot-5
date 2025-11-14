@@ -591,6 +591,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         <div class="products-toolbar" role="group" aria-label="<?php esc_attr_e('Filtres produits', 'sempa'); ?>">
+                            <div class="toolbar-field toolbar-field--search">
+                                <label for="products-local-search"><?php esc_html_e('Rechercher', 'sempa'); ?></label>
+                                <input type="search" id="products-local-search" placeholder="<?php esc_attr_e('Référence, désignation...', 'sempa'); ?>" />
+                            </div>
                             <div class="toolbar-field">
                                 <label for="stocks-filter-category"><?php esc_html_e('Catégorie', 'sempa'); ?></label>
                                 <select id="stocks-filter-category"></select>

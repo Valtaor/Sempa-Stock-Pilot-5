@@ -939,6 +939,26 @@
     box-shadow: 0 0 0 3px rgba(244, 164, 18, 0.22);
 }
 
+.toolbar-field input[type="search"] {
+    border-radius: var(--sp-radius-sm);
+    border: 1px solid var(--sp-color-border);
+    padding: 0.55rem 0.8rem;
+    color: var(--sp-color-text);
+    background: var(--sp-color-surface);
+    min-width: 220px;
+}
+
+.toolbar-field input[type="search"]:focus-visible {
+    outline: none;
+    border-color: var(--sp-color-primary);
+    box-shadow: 0 0 0 3px rgba(244, 164, 18, 0.22);
+}
+
+.toolbar-field--search {
+    flex: 1;
+    max-width: 320px;
+}
+
 .toolbar-actions {
     margin-left: auto;
 }
