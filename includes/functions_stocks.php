@@ -2030,8 +2030,17 @@ final class Sempa_Login_Redirect
             error_log('✅ ensure_database_connected OK');
 
             error_log('📍 Étape 3: Récupération des données POST');
-            // Augmenter le temps d'exécution pour les gros imports
-            set_time_limit(300); // 5 minutes
+            // Augmenter le temps d'exécution pour les gros imports (si autorisé par l'hébergeur)
+            if (function_exists('set_time_limit')) {
+                try {
+                    @set_time_limit(300); // 5 minutes
+                    error_log('⏱️ set_time_limit(300) exécuté avec succès');
+                } catch (Throwable $time_limit_error) {
+                    error_log('⚠️ set_time_limit indisponible: ' . $time_limit_error->getMessage());
+                }
+            } else {
+                error_log('⚠️ set_time_limit non disponible dans cet environnement');
+            }
 
             $products_json = isset($_POST['products']) ? wp_unslash($_POST['products']) : '';
             error_log('📦 products_json reçu : ' . strlen($products_json) . ' caractères');
