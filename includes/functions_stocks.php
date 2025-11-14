@@ -2011,6 +2011,9 @@ final class Sempa_Login_Redirect
      */
     public static function ajax_import_csv()
     {
+        // Capturer toute sortie parasite (warnings, notices, etc.)
+        ob_start();
+
         // Log pour debug - TOUT AU DÉBUT
         error_log('========================================');
         error_log('🚀 ajax_import_csv DÉBUT D\'EXÉCUTION');
@@ -2035,6 +2038,7 @@ final class Sempa_Login_Redirect
 
             if (empty($products_json)) {
                 error_log('❌ products_json est vide');
+                ob_end_clean(); // Nettoyer toute sortie parasite
                 wp_send_json_error(['message' => __('Aucune donnée de produits fournie.', 'sempa')], 400);
             }
 
@@ -2044,6 +2048,7 @@ final class Sempa_Login_Redirect
 
             if (!is_array($products) || empty($products)) {
                 error_log('❌ Produits invalides ou vides');
+                ob_end_clean(); // Nettoyer toute sortie parasite
                 wp_send_json_error(['message' => __('Données de produits invalides.', 'sempa')], 400);
             }
 
@@ -2167,6 +2172,7 @@ final class Sempa_Login_Redirect
 
             error_log('📍 Étape 8: Envoi réponse succès');
             error_log("✅ Import terminé: $success_count/$" . count($products) . " produits importés");
+            ob_end_clean(); // Nettoyer toute sortie parasite avant d'envoyer le JSON
             wp_send_json_success([
                 'success_count' => $success_count,
                 'errors' => $errors,
@@ -2179,6 +2185,7 @@ final class Sempa_Login_Redirect
             error_log('Fichier: ' . $e->getFile() . ':' . $e->getLine());
             error_log('Stack trace: ' . $e->getTraceAsString());
             error_log('========================================');
+            ob_end_clean(); // Nettoyer toute sortie parasite
             wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         } catch (Throwable $e) {
             error_log('========================================');
@@ -2187,6 +2194,7 @@ final class Sempa_Login_Redirect
             error_log('Fichier: ' . $e->getFile() . ':' . $e->getLine());
             error_log('Stack trace: ' . $e->getTraceAsString());
             error_log('========================================');
+            ob_end_clean(); // Nettoyer toute sortie parasite
             wp_send_json_error(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
     }
