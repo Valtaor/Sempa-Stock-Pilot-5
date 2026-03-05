@@ -20,7 +20,7 @@ get_header();
 <main id="primary" class="commande-express-template">
     <div class="container">
         <div class="header">
-            <h1>Bienvenue sur votre espace commande SEMPA</h1>
+            <h1>Bienvenue sur votre espace commande SEMPA - Test</h1>
             <p class="subtitle">Processus simplifié en 3 étapes.</p>
             <div class="payment-summary-notice">
                 <h3>Commande sans paiement immédiat</h3>
